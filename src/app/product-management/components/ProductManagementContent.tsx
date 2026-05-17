@@ -89,9 +89,9 @@ export default function ProductManagementContent() {
   ===================================================== */
 
   useEffect(() => {
-    const loadProducts = () => {
+    const loadProducts = async () => {
       const storedProducts =
-        getStoredProducts();
+        await getStoredProducts();
 
       setProducts(storedProducts);
 

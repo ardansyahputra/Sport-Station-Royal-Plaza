@@ -5,9 +5,19 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model AppStorage {
+  id String @id @default(cuid())
+
+  key String @unique
+
+  value Json
+
+  updatedAt DateTime @updatedAt
 }

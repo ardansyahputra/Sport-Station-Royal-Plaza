@@ -34,9 +34,8 @@ export default function DashboardContent() {
   ===================================================== */
 
   useEffect(() => {
-    const loadProducts = () => {
-      const storedProducts =
-        getStoredProducts();
+    const loadProducts = async () => {
+      const storedProducts = await getStoredProducts();
 
       setProducts(storedProducts);
     };

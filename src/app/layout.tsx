@@ -18,11 +18,10 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'SportAdmin — Sport Station Royal Plaza',
-  description: 'Admin tool untuk manajemen katalog footwear diskon Sport Station Royal Plaza — stok, harga, dan produk dalam satu dashboard.',
+  description:
+    'Admin tool untuk manajemen katalog footwear diskon Sport Station Royal Plaza — stok, harga, dan produk dalam satu dashboard.',
   icons: {
-    icon: [
-      { url: '/favicon.ico', type: 'image/x-icon' }
-    ],
+    icon: [{ url: '/favicon.ico', type: 'image/x-icon' }],
   },
 };
 
@@ -44,7 +43,7 @@ export default function RootLayout({
             },
           }}
         />
-</body>
+      </body>
     </html>
   );
 }

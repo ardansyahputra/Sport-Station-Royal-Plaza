@@ -2,34 +2,45 @@ import type { Product } from '@/lib/mockData';
 
 const STORAGE_KEY = 'sportstation-products';
 
+const STORAGE_URL = '/api/products';
+
 /* =====================================================
    GET PRODUCTS
 ===================================================== */
 
-export function getStoredProducts(): Product[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
+export async function getStoredProducts(): Promise<Product[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    /* DATABASE FIRST */
 
-    if (!raw) {
+    const response = await fetch(STORAGE_URL, {
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
       return [];
     }
 
-    const parsed = JSON.parse(raw);
+    const data = await response.json();
 
-    return Array.isArray(parsed)
-      ? parsed
-      : [];
+    const products = Array.isArray(data) ? data : [];
+
+    /* SYNC LOCAL CACHE */
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+
+    return products;
   } catch (error) {
-    console.error(
-      'Gagal mengambil data products:',
-      error
-    );
+    console.error(error);
 
-    return [];
+    /* FALLBACK TO LOCAL */
+
+    try {
+      const local = localStorage.getItem(STORAGE_KEY);
+
+      return local ? JSON.parse(local) : [];
+    } catch {
+      return [];
+    }
   }
 }
 
@@ -37,22 +48,24 @@ export function getStoredProducts(): Product[] {
    SAVE PRODUCTS
 ===================================================== */
 
-export function saveStoredProducts(
-  products: Product[]
-) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
+export async function saveStoredProducts(products: Product[]) {
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(products)
-    );
+    /* UPDATE LOCAL */
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+
+    /* UPDATE DATABASE */
+
+    await fetch(STORAGE_URL, {
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json',
+      },
+
+      body: JSON.stringify(products),
+    });
   } catch (error) {
-    console.error(
-      'Gagal menyimpan products:',
-      error
-    );
+    console.error(error);
   }
 }
