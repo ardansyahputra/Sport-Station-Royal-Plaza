@@ -31,7 +31,7 @@ const navItems: NavItem[] = [
   {
     key: 'nav-dashboard',
     label: 'Dashboard',
-    href: '/',
+    href: '/dashboard',
     icon: <LayoutDashboard size={20} />,
   },
   {
