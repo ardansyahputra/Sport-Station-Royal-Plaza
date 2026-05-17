@@ -253,45 +253,6 @@ export default function LoginForm() {
             </button>
           </form>
 
-          {/* Demo credentials box */}
-          <div className="mt-8 rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(255,107,0,0.3)', backgroundColor: 'var(--accent)' }}>
-            <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: 'rgba(255,107,0,0.2)', backgroundColor: 'rgba(255,107,0,0.08)' }}>
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={14} style={{ color: 'var(--primary)' }} />
-                <span className="text-xs font-600" style={{ color: 'var(--primary)' }}>Akun Demo Admin</span>
-              </div>
-              <button
-                onClick={handleFillCredentials}
-                className="text-2xs font-600 px-2.5 py-1 rounded-md transition-all active:scale-95"
-                style={{ backgroundColor: 'var(--primary)', color: 'white' }}
-              >
-                Isi Otomatis
-              </button>
-            </div>
-            <div className="px-4 py-3 space-y-2">
-              {[
-                { label: 'Username', value: DEMO_CREDENTIALS.username, field: 'username' as const },
-                { label: 'Password', value: DEMO_CREDENTIALS.password, field: 'password' as const },
-              ].map((item) => (
-                <div key={`cred-${item.field}`} className="flex items-center justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-2xs text-muted-foreground">{item.label}</p>
-                    <p className="text-xs font-500 text-foreground font-mono truncate">{item.value}</p>
-                  </div>
-                  <button
-                    onClick={() => handleCopy(item.field)}
-                    className="p-1.5 rounded hover:bg-muted transition-colors flex-shrink-0"
-                    aria-label={`Salin ${item.label}`}
-                  >
-                    {copiedField === item.field
-                      ? <Check size={14} style={{ color: 'var(--success)' }} />
-                      : <Copy size={14} className="text-muted-foreground" />
-                    }
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

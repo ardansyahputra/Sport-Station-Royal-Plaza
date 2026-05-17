@@ -95,9 +95,9 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
               key={item.key}
               href={item.href}
               className={`
-                group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 relative
+                group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 relative text-white
                 ${isActive
-                  ? 'sidebar-item-active' :'text-sidebar hover:text-white'
+                  ? 'sidebar-item-active' :'text-sidebar'
                 }
               `}
               style={!isActive ? {} : undefined}
@@ -110,7 +110,7 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
                 {item.icon}
               </span>
               {!collapsed && (
-                <span className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+                <span className="text-sm font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis flex-1">
                   {item.label}
                 </span>
               )}
