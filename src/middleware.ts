@@ -8,7 +8,12 @@ const PUBLIC_FILE = /\.(.*)$/;
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Ignore internals
+  /*
+  |--------------------------------------------------------------------------
+  | IGNORE INTERNALS / STATIC FILES
+  |--------------------------------------------------------------------------
+  */
+
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -26,19 +31,33 @@ export function middleware(req: NextRequest) {
 
   /*
   |--------------------------------------------------------------------------
-  | BLOCK DIRECT ACCESS
+  | CLEAN SUBDOMAIN URLS
+  |--------------------------------------------------------------------------
+  |
+  | admin.localhost/admin/dashboard
+  | -> admin.localhost/dashboard
+  |
+  */
+
+  if (subdomain === domainConfig.subdomains.admin && pathname.startsWith('/admin')) {
+    url.pathname = pathname.replace('/admin', '') || '/';
+
+    return NextResponse.redirect(url);
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | OPTIONAL DIRECT PATH ACCESS
   |--------------------------------------------------------------------------
   */
 
-  // localhost cannot access /admin
-  if (!subdomain && pathname.startsWith('/admin')) {
-    url.pathname = '/404';
+  if (pathname.startsWith('/admin')) {
+    // Allow localhost/admin/*
+    if (domainConfig.enableAdminPathRouting) {
+      return NextResponse.next();
+    }
 
-    return NextResponse.rewrite(url);
-  }
-
-  // admin.localhost cannot access /user
-  if (subdomain === domainConfig.subdomains.admin && pathname.startsWith('/user')) {
+    // Block direct access when disabled
     url.pathname = '/404';
 
     return NextResponse.rewrite(url);
@@ -46,28 +65,56 @@ export function middleware(req: NextRequest) {
 
   /*
   |--------------------------------------------------------------------------
-  | INTERNAL ROUTES
+  | INTERNAL USER ROUTES
   |--------------------------------------------------------------------------
   */
 
-  if (pathname.startsWith('/admin') || pathname.startsWith('/user')) {
+  if (pathname.startsWith('/user')) {
     return NextResponse.next();
   }
 
   /*
   |--------------------------------------------------------------------------
-  | DOMAIN ROUTING
+  | ROOT REDIRECTS
   |--------------------------------------------------------------------------
   */
 
-  // admin.localhost
+  // admin.localhost -> /dashboard
+  if (subdomain === domainConfig.subdomains.admin && pathname === '/') {
+    url.pathname = '/dashboard';
+
+    return NextResponse.redirect(url);
+  }
+
+  // localhost -> /login-screen
+  if (!subdomain && pathname === '/') {
+    url.pathname = '/login-screen';
+
+    return NextResponse.redirect(url);
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | SUBDOMAIN ROUTING
+  |--------------------------------------------------------------------------
+  */
+
+  // admin.localhost/dashboard
+  // -> /admin/dashboard
   if (subdomain === domainConfig.subdomains.admin) {
     url.pathname = `/admin${pathname}`;
 
     return NextResponse.rewrite(url);
   }
 
-  // default user site
+  /*
+  |--------------------------------------------------------------------------
+  | DEFAULT USER ROUTING
+  |--------------------------------------------------------------------------
+  */
+
+  // localhost/dashboard
+  // -> /user/dashboard
   url.pathname = `/user${pathname}`;
 
   return NextResponse.rewrite(url);

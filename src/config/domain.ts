@@ -4,4 +4,6 @@ export const domainConfig = {
   subdomains: {
     admin: process.env.ADMIN_SUBDOMAIN!,
   },
+
+  enableAdminPathRouting: process.env.ENABLE_ADMIN_PATH_ROUTING === 'true',
 };

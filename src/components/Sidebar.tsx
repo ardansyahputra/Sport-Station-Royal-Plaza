@@ -32,20 +32,20 @@ const navItems: NavItem[] = [
   {
     key: 'nav-dashboard',
     label: 'Dashboard',
-    href: '/dashboard',
+    href: '/admin/dashboard',
     icon: <LayoutDashboard size={20} />,
   },
   {
     key: 'nav-products',
     label: 'Manajemen Produk',
-    href: '/product-management',
+    href: '/admin/product-management',
     icon: <Package size={20} />,
   },
 
   {
     key: 'nav-settings',
     label: 'Pengaturan',
-    href: '/pengaturan',
+    href: '/admin/pengaturan',
     icon: <Settings size={20} />,
   },
 ];

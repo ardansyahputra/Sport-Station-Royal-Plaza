@@ -55,7 +55,7 @@ export default function LoginForm() {
     await new Promise((resolve) => setTimeout(resolve, 900));
 
     if (data.username === credentials.email && data.password === credentials.password) {
-      router.push('/dashboard');
+      router.push('/admin/dashboard');
     } else {
       console.log(credentials);
       setAuthError('Kredensial tidak valid');
