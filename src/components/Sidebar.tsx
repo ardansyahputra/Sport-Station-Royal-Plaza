@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
@@ -14,6 +14,7 @@ import {
   LogOut,
   ShieldCheck,
 } from 'lucide-react';
+import { getStoredSettings } from '@/lib/settingsStorage';
 
 type NavItem = {
   key: string;
@@ -52,6 +53,24 @@ const navItems: NavItem[] = [
 export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [credentials, setCredentials] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await getStoredSettings();
+      setCredentials({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
+    };
+
+    load();
+  }, []);
 
   return (
     <aside
@@ -71,7 +90,10 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
             <span className="block text-white font-bold text-sm leading-tight whitespace-nowrap">
               Sport Station
             </span>
-            <span className="block text-xs whitespace-nowrap" style={{ color: 'var(--sidebar-text)' }}>
+            <span
+              className="block text-xs whitespace-nowrap"
+              style={{ color: 'var(--sidebar-text)' }}
+            >
               Royal Plaza
             </span>
           </div>
@@ -81,14 +103,15 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
       {/* Nav Items */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto scrollbar-thin">
         {!collapsed && (
-          <p className="px-3 mb-2 text-2xs font-600 uppercase tracking-widest" style={{ color: 'var(--sidebar-text)', opacity: 0.5 }}>
+          <p
+            className="px-3 mb-2 text-2xs font-600 uppercase tracking-widest"
+            style={{ color: 'var(--sidebar-text)', opacity: 0.5 }}
+          >
             Menu Utama
           </p>
         )}
         {navItems.map((item) => {
-          const isActive = item.href === '/'
-            ? pathname === '/'
-            : pathname.startsWith(item.href);
+          const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
 
           return (
             <Link
@@ -96,9 +119,7 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
               href={item.href}
               className={`
                 group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 relative text-white
-                ${isActive
-                  ? 'sidebar-item-active' :'text-sidebar'
-                }
+                ${isActive ? 'sidebar-item-active' : 'text-sidebar'}
               `}
               style={!isActive ? {} : undefined}
               title={collapsed ? item.label : undefined}
@@ -130,16 +151,27 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
       </nav>
 
       {/* Bottom */}
-      <div className="border-t px-2 py-3 space-y-1" style={{ borderColor: 'var(--sidebar-border)' }}>
+      <div
+        className="border-t px-2 py-3 space-y-1"
+        style={{ borderColor: 'var(--sidebar-border)' }}
+      >
         {/* Admin info */}
         {!collapsed && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--primary)' }}>
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1"
+            style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+          >
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: 'var(--primary)' }}
+            >
               <ShieldCheck size={14} className="text-white" />
             </div>
             <div className="overflow-hidden">
-              <p className="text-xs font-600 text-white truncate">Administrator</p>
-              <p className="text-2xs truncate" style={{ color: 'var(--sidebar-text)' }}>admin@sportstation.id</p>
+              <p className="text-xs font-600 text-white truncate">{credentials.name}</p>
+              <p className="text-2xs truncate" style={{ color: 'var(--sidebar-text)' }}>
+                {credentials.email}
+              </p>
             </div>
           </div>
         )}

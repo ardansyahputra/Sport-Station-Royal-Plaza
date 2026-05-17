@@ -1,20 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, ShieldCheck, Copy, Check, AlertCircle, Package } from 'lucide-react';
 import AppLogo from '@/components/ui/AppLogo';
+import { getStoredSettings } from '@/lib/settingsStorage';
 
 type LoginFormData = {
   username: string;
   password: string;
   rememberMe: boolean;
-};
-
-const DEMO_CREDENTIALS = {
-  username: 'admin.royalplaza',
-  password: 'SportStation@2026',
 };
 
 export default function LoginForm() {
@@ -23,6 +19,24 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null);
+
+  const [credentials, setCredentials] = useState({
+    email: '',
+    password: '',
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await getStoredSettings();
+
+      setCredentials({
+        email: data.email,
+        password: data.password,
+      });
+    };
+
+    load();
+  }, []);
 
   const {
     register,
@@ -33,19 +47,6 @@ export default function LoginForm() {
     defaultValues: { username: '', password: '', rememberMe: false },
   });
 
-  const handleCopy = async (field: 'username' | 'password') => {
-    const value = field === 'username' ? DEMO_CREDENTIALS.username : DEMO_CREDENTIALS.password;
-    await navigator.clipboard.writeText(value);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
-
-  const handleFillCredentials = () => {
-    setValue('username', DEMO_CREDENTIALS.username);
-    setValue('password', DEMO_CREDENTIALS.password);
-    setAuthError('');
-  };
-
   // Backend integration point: replace with real auth API call
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
@@ -53,13 +54,12 @@ export default function LoginForm() {
 
     await new Promise((resolve) => setTimeout(resolve, 900));
 
-    if (
-      data.username === DEMO_CREDENTIALS.username &&
-      data.password === DEMO_CREDENTIALS.password
-    ) {
+    if (data.username === credentials.email && data.password === credentials.password) {
       router.push('/dashboard');
     } else {
-      setAuthError('Kredensial tidak valid — gunakan akun demo di bawah untuk masuk');
+      console.log(credentials);
+      setAuthError('Kredensial tidak valid');
+
       setIsLoading(false);
     }
   };
@@ -88,7 +88,9 @@ export default function LoginForm() {
             <AppLogo size={44} />
             <div>
               <span className="block text-white font-800 text-xl leading-tight">Sport Station</span>
-              <span className="block text-sm" style={{ color: 'var(--sidebar-text)' }}>Royal Plaza Surabaya</span>
+              <span className="block text-sm" style={{ color: 'var(--sidebar-text)' }}>
+                Royal Plaza Surabaya
+              </span>
             </div>
           </div>
         </div>
@@ -103,12 +105,15 @@ export default function LoginForm() {
             Footwear Up to 70% Collection
           </div>
           <h2 className="text-3xl font-800 text-white leading-tight mb-4">
-            Kelola Katalog<br />
-            Diskon dengan<br />
+            Kelola Katalog
+            <br />
+            Diskon dengan
+            <br />
             <span style={{ color: 'var(--primary)' }}>Mudah & Cepat</span>
           </h2>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--sidebar-text)' }}>
-            Admin tool untuk manajemen stok, harga diskon, dan katalog produk footwear Sport Station Royal Plaza.
+            Admin tool untuk manajemen stok, harga diskon, dan katalog produk footwear Sport Station
+            Royal Plaza.
           </p>
 
           {/* Stats */}
@@ -123,8 +128,12 @@ export default function LoginForm() {
                 className="text-center p-3 rounded-xl"
                 style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
               >
-                <p className="text-xl font-800 font-tabular" style={{ color: 'var(--primary)' }}>{stat.value}</p>
-                <p className="text-2xs mt-0.5" style={{ color: 'var(--sidebar-text)' }}>{stat.label}</p>
+                <p className="text-xl font-800 font-tabular" style={{ color: 'var(--primary)' }}>
+                  {stat.value}
+                </p>
+                <p className="text-2xs mt-0.5" style={{ color: 'var(--sidebar-text)' }}>
+                  {stat.label}
+                </p>
               </div>
             ))}
           </div>
@@ -155,9 +164,21 @@ export default function LoginForm() {
 
           {/* Auth error */}
           {authError && (
-            <div className="flex items-start gap-3 p-3 rounded-lg mb-5 animate-slide-down" style={{ backgroundColor: 'var(--danger-bg)', border: '1px solid rgba(220,38,38,0.2)' }}>
-              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--danger)' }} />
-              <p className="text-sm" style={{ color: 'var(--danger)' }}>{authError}</p>
+            <div
+              className="flex items-start gap-3 p-3 rounded-lg mb-5 animate-slide-down"
+              style={{
+                backgroundColor: 'var(--danger-bg)',
+                border: '1px solid rgba(220,38,38,0.2)',
+              }}
+            >
+              <AlertCircle
+                size={16}
+                className="flex-shrink-0 mt-0.5"
+                style={{ color: 'var(--danger)' }}
+              />
+              <p className="text-sm" style={{ color: 'var(--danger)' }}>
+                {authError}
+              </p>
             </div>
           )}
 
@@ -174,12 +195,16 @@ export default function LoginForm() {
                 autoComplete="username"
                 placeholder="admin.royalplaza"
                 className={`w-full px-4 py-2.5 text-sm rounded-lg border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-all ${
-                  errors.username ? 'border-danger focus:ring-danger/30' : 'border-border focus:ring-ring/30 focus:border-primary'
+                  errors.username
+                    ? 'border-danger focus:ring-danger/30'
+                    : 'border-border focus:ring-ring/30 focus:border-primary'
                 }`}
                 {...register('username', { required: 'Username wajib diisi' })}
               />
               {errors.username && (
-                <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>{errors.username.message}</p>
+                <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>
+                  {errors.username.message}
+                </p>
               )}
             </div>
 
@@ -195,7 +220,9 @@ export default function LoginForm() {
                   autoComplete="current-password"
                   placeholder="••••••••••••"
                   className={`w-full px-4 py-2.5 pr-11 text-sm rounded-lg border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-all ${
-                    errors.password ? 'border-danger focus:ring-danger/30' : 'border-border focus:ring-ring/30 focus:border-primary'
+                    errors.password
+                      ? 'border-danger focus:ring-danger/30'
+                      : 'border-border focus:ring-ring/30 focus:border-primary'
                   }`}
                   {...register('password', { required: 'Password wajib diisi' })}
                 />
@@ -205,14 +232,17 @@ export default function LoginForm() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted transition-colors"
                   aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
-                  {showPassword
-                    ? <EyeOff size={16} className="text-muted-foreground" />
-                    : <Eye size={16} className="text-muted-foreground" />
-                  }
+                  {showPassword ? (
+                    <EyeOff size={16} className="text-muted-foreground" />
+                  ) : (
+                    <Eye size={16} className="text-muted-foreground" />
+                  )}
                 </button>
               </div>
               {errors.password && (
-                <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>{errors.password.message}</p>
+                <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
@@ -224,7 +254,10 @@ export default function LoginForm() {
                 className="w-4 h-4 rounded accent-primary cursor-pointer"
                 {...register('rememberMe')}
               />
-              <label htmlFor="rememberMe" className="text-sm text-muted-foreground cursor-pointer select-none">
+              <label
+                htmlFor="rememberMe"
+                className="text-sm text-muted-foreground cursor-pointer select-none"
+              >
                 Ingat saya
               </label>
             </div>
@@ -239,8 +272,19 @@ export default function LoginForm() {
               {isLoading ? (
                 <>
                   <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                   <span>Memverifikasi...</span>
                 </>
@@ -252,7 +296,6 @@ export default function LoginForm() {
               )}
             </button>
           </form>
-
         </div>
       </div>
     </div>

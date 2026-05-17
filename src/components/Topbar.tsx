@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, X, AlertTriangle, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import type { LowStockAlert } from '@/lib/mockData';
-
+import { getStoredSettings } from '@/lib/settingsStorage';
 
 type TopbarProps = {
   alerts: LowStockAlert[];
@@ -18,6 +18,25 @@ export default function Topbar({ alerts, onDismissAlert, pageTitle, pageSubtitle
   const dropdownRef = useRef<HTMLDivElement>(null);
   const activeAlerts = alerts.filter((a) => !a.dismissed);
 
+  const [credentials, setCredentials] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await getStoredSettings();
+      setCredentials({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
+    };
+
+    load();
+  }, []);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -29,13 +48,14 @@ export default function Topbar({ alerts, onDismissAlert, pageTitle, pageSubtitle
   }, []);
 
   return (
-    <header className="sticky top-0 z-20 bg-card border-b flex items-center justify-between px-6 py-0" style={{ minHeight: '64px' }}>
+    <header
+      className="sticky top-0 z-20 bg-card border-b flex items-center justify-between px-6 py-0"
+      style={{ minHeight: '64px' }}
+    >
       {/* Page title */}
       <div>
         <h1 className="text-lg font-700 text-foreground leading-tight">{pageTitle}</h1>
-        {pageSubtitle && (
-          <p className="text-xs text-muted-foreground mt-0.5">{pageSubtitle}</p>
-        )}
+        {pageSubtitle && <p className="text-xs text-muted-foreground mt-0.5">{pageSubtitle}</p>}
       </div>
 
       {/* Right actions */}
@@ -95,10 +115,14 @@ export default function Topbar({ alerts, onDismissAlert, pageTitle, pageSubtitle
                     >
                       <div
                         className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                        style={{ backgroundColor: alert.stock === 0 ? 'var(--danger)' : 'var(--warning)' }}
+                        style={{
+                          backgroundColor: alert.stock === 0 ? 'var(--danger)' : 'var(--warning)',
+                        }}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-600 text-foreground truncate">{alert.modelName}</p>
+                        <p className="text-xs font-600 text-foreground truncate">
+                          {alert.modelName}
+                        </p>
                         <p className="text-2xs text-muted-foreground mt-0.5">
                           {alert.brand} · {alert.color} · EU {alert.sizeEU}
                         </p>
@@ -146,8 +170,8 @@ export default function Topbar({ alerts, onDismissAlert, pageTitle, pageSubtitle
             A
           </div>
           <div className="hidden sm:block">
-            <p className="text-xs font-600 text-foreground leading-tight">Administrator</p>
-            <p className="text-2xs text-muted-foreground">Sport Station RP</p>
+            <p className="text-xs font-600 text-foreground leading-tight">{credentials.name}</p>
+            <p className="text-2xs text-muted-foreground">{credentials.email}</p>
           </div>
         </div>
       </div>
