@@ -40,16 +40,11 @@ const navItems: NavItem[] = [
     href: '/product-management',
     icon: <Package size={20} />,
   },
-  {
-    key: 'nav-import-export',
-    label: 'Import / Export',
-    href: '/product-management',
-    icon: <Upload size={20} />,
-  },
+
   {
     key: 'nav-settings',
     label: 'Pengaturan',
-    href: '/product-management',
+    href: '/pengaturan',
     icon: <Settings size={20} />,
   },
 ];
