@@ -24,8 +24,8 @@ type ProductToolbarProps = {
   lowStockCount: number;
 };
 
-const BRANDS = ['Airwalk', 'Converse', 'Diadora', 'New Balance', 'Reebok'];
-const DISCOUNTS = ['0', '50', '70', '80'];
+const BRANDS = ['Airwalk', 'Converse', 'Diadora', 'New Balance', 'Reebok','Puma','Nike','SKECHERS',];
+const DISCOUNTS = ['0', '10', '20', '30'];
 const CATEGORIES = ['MEN', 'WOMEN', 'UNISEX', 'KIDS', 'INFANT'];
 const STOCK_FILTERS = [
   { value: 'in', label: 'Stok Aman' },

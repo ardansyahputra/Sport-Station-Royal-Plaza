@@ -21,20 +21,24 @@ export default function Topbar({ alerts, onDismissAlert, pageTitle, pageSubtitle
   const [credentials, setCredentials] = useState({
     name: '',
     email: '',
-    password: '',
+    avatar: '',
   });
 
-  useEffect(() => {
-    const load = async () => {
-      const data = await getStoredSettings();
-      setCredentials({
-        name: data.name,
-        email: data.email,
-        password: data.password,
-      });
-    };
+  const loadData = async () => {
+    const data = await getStoredSettings();
+    setCredentials({
+      name: data.name || 'Admin Store',
+      email: data.email || 'admin@sportstation.com',
+      avatar: data.avatar || '',
+    });
+  };
 
-    load();
+  useEffect(() => {
+    loadData();
+
+    // Dengarkan event 'profileUpdate' dari halaman pengaturan
+    window.addEventListener('profileUpdate', loadData);
+    return () => window.removeEventListener('profileUpdate', loadData);
   }, []);
 
   useEffect(() => {
@@ -161,17 +165,25 @@ export default function Topbar({ alerts, onDismissAlert, pageTitle, pageSubtitle
           )}
         </div>
 
-        {/* Admin avatar */}
+        {/* Admin avatar & credentials yang otomatis sinkron */}
         <div className="flex items-center gap-2 pl-3 border-l">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-700 text-white flex-shrink-0"
-            style={{ backgroundColor: 'var(--primary)' }}
-          >
-            A
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-xs font-600 text-foreground leading-tight">{credentials.name}</p>
-            <p className="text-2xs text-muted-foreground">{credentials.email}</p>
+          {credentials.avatar ? (
+            <img
+              src={credentials.avatar}
+              alt="Avatar"
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0 border"
+            />
+          ) : (
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-700 text-white flex-shrink-0"
+              style={{ backgroundColor: 'var(--primary)' }}
+            >
+              {credentials.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="hidden sm:block max-w-[120px]">
+            <p className="text-xs font-600 text-foreground leading-tight truncate">{credentials.name}</p>
+            <p className="text-2xs text-muted-foreground truncate">{credentials.email}</p>
           </div>
         </div>
       </div>

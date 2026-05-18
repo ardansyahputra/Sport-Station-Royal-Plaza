@@ -7,12 +7,10 @@ import AppLogo from '@/components/ui/AppLogo';
 import {
   LayoutDashboard,
   Package,
-  Upload,
   Settings,
   ChevronLeft,
   ChevronRight,
   LogOut,
-  ShieldCheck,
 } from 'lucide-react';
 import { getStoredSettings } from '@/lib/settingsStorage';
 
@@ -41,7 +39,6 @@ const navItems: NavItem[] = [
     href: '/admin/product-management',
     icon: <Package size={20} />,
   },
-
   {
     key: 'nav-settings',
     label: 'Pengaturan',
@@ -56,20 +53,24 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
   const [credentials, setCredentials] = useState({
     name: '',
     email: '',
-    password: '',
+    avatar: '',
   });
 
-  useEffect(() => {
-    const load = async () => {
-      const data = await getStoredSettings();
-      setCredentials({
-        name: data.name,
-        email: data.email,
-        password: data.password,
-      });
-    };
+  const loadData = async () => {
+    const data = await getStoredSettings();
+    setCredentials({
+      name: data.name || 'Admin Store',
+      email: data.email || 'admin@sportstation.com',
+      avatar: data.avatar || '',
+    });
+  };
 
-    load();
+  useEffect(() => {
+    loadData();
+
+    // Dengarkan event 'profileUpdate' dari halaman pengaturan
+    window.addEventListener('profileUpdate', loadData);
+    return () => window.removeEventListener('profileUpdate', loadData);
   }, []);
 
   return (
@@ -121,7 +122,6 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
                 group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 relative text-white
                 ${isActive ? 'sidebar-item-active' : 'text-sidebar'}
               `}
-              style={!isActive ? {} : undefined}
               title={collapsed ? item.label : undefined}
             >
               <span
@@ -155,19 +155,27 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
         className="border-t px-2 py-3 space-y-1"
         style={{ borderColor: 'var(--sidebar-border)' }}
       >
-        {/* Admin info */}
+        {/* Admin info yang otomatis berubah gambar/nama/email-nya */}
         {!collapsed && (
           <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1 relative overflow-hidden"
             style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
           >
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: 'var(--primary)' }}
-            >
-              <ShieldCheck size={14} className="text-white" />
-            </div>
-            <div className="overflow-hidden">
+            {credentials.avatar ? (
+              <img 
+                src={credentials.avatar} 
+                alt="Avatar" 
+                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-xs"
+                style={{ backgroundColor: 'var(--primary)' }}
+              >
+                {credentials.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="overflow-hidden flex-1">
               <p className="text-xs font-600 text-white truncate">{credentials.name}</p>
               <p className="text-2xs truncate" style={{ color: 'var(--sidebar-text)' }}>
                 {credentials.email}

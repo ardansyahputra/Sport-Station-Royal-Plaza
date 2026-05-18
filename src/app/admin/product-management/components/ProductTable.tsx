@@ -194,8 +194,10 @@ export default function ProductTable({
                 const totalStock = product.sizes.reduce((s, sz) => s + sz.stock, 0);
                 const isLowStock = lowStockProductIds.has(product.id);
                 const isSelected = selectedIds.has(product.id);
+                
+                // PERBAIKAN DI SINI: Cukup ambil text langsung dari index ke-0 
                 const sizeRange = product.sizes.length > 0
-                  ? `${product.sizes[0].eu}–${product.sizes[product.sizes.length - 1].eu}`
+                  ? product.sizes[0].eu
                   : '—';
 
                 return (
@@ -271,8 +273,8 @@ export default function ProductTable({
 
                     {/* Sizes */}
                     <td className="px-4 py-3">
+                      {/* Tampilan teks ukuran bersih sesuai ketikan admin */}
                       <span className="text-xs font-tabular text-muted-foreground whitespace-nowrap">{sizeRange}</span>
-                      <span className="text-2xs text-muted-foreground ml-1">({product.sizes.length} uk)</span>
                     </td>
 
                     {/* Total Stock */}
@@ -303,7 +305,7 @@ export default function ProductTable({
                         className={`text-xs font-700 px-2 py-0.5 rounded-full ${
                           product.discountPercent === 0 ? 'discount-badge-0' :
                           product.discountPercent === 50 ? 'discount-badge-50' :
-                          product.discountPercent === 70 ? 'discount-badge-70': 'discount-badge-80'
+                          product.discountPercent === 70 ? 'discount-badge-70' : 'discount-badge-80'
                         }`}
                       >
                         {product.discountPercent === 0 ? 'No disc.' : `-${product.discountPercent}%`}

@@ -17,6 +17,9 @@ export type Product = {
     | 'Converse'
     | 'Diadora'
     | 'New Balance'
+    | 'SKECHERS'
+    | 'Puma'
+    | 'Nike'
     | 'Reebok';
 
   modelName: string;
