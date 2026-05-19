@@ -24,7 +24,6 @@ type FormValues = {
   imageFile: FileList;
   originalPrice: number;
   discountPercent: 0 | 10 | 20 | 30;
-  // Field baru khusus form berupa teks biasa
   sizeTextRange: string;
 };
 
@@ -86,10 +85,10 @@ export default function ProductFormModal({
   });
 
   /* =====================================================
-     WATCH PREVIEW HARGA
+     WATCH PREVIEW HARGA (Otomatis sinkron saat input berubah)
   ===================================================== */
-  const discountPercent = watch('discountPercent');
-  const originalPrice = watch('originalPrice');
+  const discountPercent = watch('discountPercent') || 0;
+  const originalPrice = watch('originalPrice') || 0;
 
   const discountedPrice = Math.round(
     Number(originalPrice) * (1 - Number(discountPercent) / 100)
@@ -102,7 +101,7 @@ export default function ProductFormModal({
     if (!isOpen) return;
 
     if (editingProduct) {
-      // Ambil string size dari array object pertama jika ada data lama
+      // Ambil teks ukuran lama dari index pertama jika ada
       const existingSizeText =
         editingProduct.sizes && editingProduct.sizes.length > 0
           ? editingProduct.sizes[0].eu
@@ -111,7 +110,7 @@ export default function ProductFormModal({
       reset({
         brand: editingProduct.brand,
         productCode: editingProduct.productCode,
-        fullSkuCode: editingProduct.fullSkuCode,
+        fullSkuCode: editingProduct.fullSkuCode || '',
         modelName: editingProduct.modelName,
         color: editingProduct.color,
         category: editingProduct.category,
@@ -143,22 +142,26 @@ export default function ProductFormModal({
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
 
-    await new Promise((r) => setTimeout(r, 400));
+    // Simulasi delay penyimpanan
+    await new Promise((r) => setTimeout(r, 200));
 
-    // Bungkus teks input biasa menjadi struktur skema model Array SizeEntry
+    // Pertahankan nilai stok barang lama jika sedang dalam mode edit
+    const oldStock = editingProduct?.sizes?.[0]?.stock ?? 10;
+
     const formattedSizes: SizeEntry[] = data.sizeTextRange.trim() !== '' 
       ? [
           {
             eu: data.sizeTextRange.trim(),
-            uk: '',
-            us: '',
-            cm: '',
-            stock: 10, // Default stock aman agar tombol order landing page menyala
+            uk: editingProduct?.sizes?.[0]?.uk ?? '',
+            us: editingProduct?.sizes?.[0]?.us ?? '',
+            cm: editingProduct?.sizes?.[0]?.cm ?? '',
+            stock: oldStock, 
           }
         ]
       : [];
 
     const product: Product = {
+      // PENTING: Tetap gunakan ID lama saat edit agar terhitung sebagai UPDATE
       id: editingProduct?.id ?? `prod-${Date.now()}`,
       productCode: data.productCode,
       fullSkuCode: data.fullSkuCode,
@@ -179,6 +182,7 @@ export default function ProductFormModal({
 
     onSave(product);
     setIsSubmitting(false);
+    onClose(); // Menutup modal otomatis setelah disimpan
   };
 
   return (
@@ -212,7 +216,7 @@ export default function ProductFormModal({
                 Menyimpan...
               </>
             ) : editingProduct ? (
-              'Simpan'
+              'Simpan Perubahan'
             ) : (
               'Tambah Produk'
             )}
@@ -251,8 +255,9 @@ export default function ProductFormModal({
               type="text"
               placeholder="Contoh: Air Max Solo"
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              {...register('modelName', { required: true })}
+              {...register('modelName', { required: 'Nama model wajib diisi' })}
             />
+            {errors.modelName && <p className="text-xs text-red-500 mt-1">{errors.modelName.message}</p>}
           </div>
 
           {/* PRODUCT CODE */}
@@ -263,7 +268,7 @@ export default function ProductFormModal({
               placeholder="Contoh: DX3666-100"
               className="w-full border rounded-lg px-3 py-2 text-sm"
               {...register('productCode', {
-                required: true,
+                required: 'Product code wajib diisi',
                 validate: (v) => {
                   if (
                     !editingProduct &&
@@ -302,15 +307,16 @@ export default function ProductFormModal({
             />
           </div>
 
-          {/* INPUT SIZE SEDERHANA (BERDASARKAN TEKS) */}
+          {/* INPUT SIZE SEDERHANA */}
           <div>
             <label className="block text-sm mb-1 font-medium text-slate-700">Ukuran / Size Tersedia</label>
             <input
               type="text"
               placeholder="Contoh langsung ketik: 36-40 atau 39,40,41"
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-orange-50/20 border-orange-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
-              {...register('sizeTextRange', { required: true })}
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-orange-50/20 border-orange-200 focus:border-orange-500"
+              {...register('sizeTextRange', { required: 'Ukuran wajib diisi' })}
             />
+            {errors.sizeTextRange && <p className="text-xs text-red-500 mt-1">{errors.sizeTextRange.message}</p>}
           </div>
 
           {/* IMAGE FILE */}
@@ -319,7 +325,6 @@ export default function ProductFormModal({
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
               {...register('imageFile')}
               onChange={(e) => {
@@ -348,13 +353,13 @@ export default function ProductFormModal({
             <input
               type="number"
               className="w-full border rounded-lg px-3 py-2 text-sm"
-              {...register('originalPrice')}
+              {...register('originalPrice', { valueAsNumber: true })}
             />
           </div>
 
           <div>
             <label className="block text-sm mb-1 font-medium text-slate-700">Diskon</label>
-            <select className="w-full border rounded-lg px-3 py-2 text-sm bg-white" {...register('discountPercent')}>
+            <select className="w-full border rounded-lg px-3 py-2 text-sm bg-white" {...register('discountPercent', { valueAsNumber: true })}>
               {DISCOUNTS.map((d) => (
                 <option key={d} value={d}>{d}%</option>
               ))}

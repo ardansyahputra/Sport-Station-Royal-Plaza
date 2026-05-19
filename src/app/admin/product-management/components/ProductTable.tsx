@@ -32,6 +32,9 @@ const BRAND_COLORS: Record<string, string> = {
   Diadora: '#059669',
   'New Balance': '#7C3AED',
   Reebok: '#D97706',
+  SKECHERS: '#0284c7', // Menambahkan warna cadangan jika dibutuhkan
+  Nike: '#ea580c',
+  Puma: '#1e293b'
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -102,7 +105,6 @@ export default function ProductTable({
           <table className="w-full text-sm" style={{ minWidth: '1000px' }}>
             <thead>
               <tr className="border-b" style={{ backgroundColor: 'var(--muted)' }}>
-                {/* Checkbox */}
                 <th className="px-4 py-3 w-10">
                   <input
                     type="checkbox"
@@ -113,11 +115,9 @@ export default function ProductTable({
                     aria-label="Pilih semua produk di halaman ini"
                   />
                 </th>
-                {/* Image */}
                 <th className="px-4 py-3 w-16 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground">
                   Foto
                 </th>
-                {/* Brand */}
                 <th
                   className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
                   onClick={() => onSort('brand')}
@@ -127,7 +127,6 @@ export default function ProductTable({
                     <SortIcon colKey="brand" sortKey={sortKey} sortDir={sortDir} />
                   </div>
                 </th>
-                {/* Model */}
                 <th
                   className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
                   onClick={() => onSort('modelName')}
@@ -137,23 +136,18 @@ export default function ProductTable({
                     <SortIcon colKey="modelName" sortKey={sortKey} sortDir={sortDir} />
                   </div>
                 </th>
-                {/* Code */}
                 <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                   Kode Produk
                 </th>
-                {/* Color */}
                 <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground">
                   Warna
                 </th>
-                {/* Category */}
                 <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground">
                   Kategori
                 </th>
-                {/* Sizes */}
                 <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground whitespace-nowrap">
                   Ukuran EU
                 </th>
-                {/* Stock */}
                 <th
                   className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
                   onClick={() => onSort('totalStock')}
@@ -163,7 +157,6 @@ export default function ProductTable({
                     <SortIcon colKey="totalStock" sortKey={sortKey} sortDir={sortDir} />
                   </div>
                 </th>
-                {/* Price */}
                 <th
                   className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
                   onClick={() => onSort('originalPrice')}
@@ -173,7 +166,6 @@ export default function ProductTable({
                     <SortIcon colKey="originalPrice" sortKey={sortKey} sortDir={sortDir} />
                   </div>
                 </th>
-                {/* Discount */}
                 <th
                   className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
                   onClick={() => onSort('discountPercent')}
@@ -183,7 +175,6 @@ export default function ProductTable({
                     <SortIcon colKey="discountPercent" sortKey={sortKey} sortDir={sortDir} />
                   </div>
                 </th>
-                {/* Actions */}
                 <th className="px-4 py-3 text-right text-2xs font-600 uppercase tracking-wider text-muted-foreground w-28">
                   Aksi
                 </th>
@@ -191,14 +182,20 @@ export default function ProductTable({
             </thead>
             <tbody>
               {products.map((product) => {
-                const totalStock = product.sizes.reduce((s, sz) => s + sz.stock, 0);
+                // ✅ PERBAIKAN: Gunakan pembacaan angka aman (Number) agar deteksi perubahan stok terbaca React
+                const totalStock = Array.isArray(product.sizes)
+                  ? product.sizes.reduce((s, sz) => s + (Number(sz?.stock) || 0), 0)
+                  : 0;
+
                 const isLowStock = lowStockProductIds.has(product.id);
                 const isSelected = selectedIds.has(product.id);
                 
-                // PERBAIKAN DI SINI: Cukup ambil text langsung dari index ke-0 
-                const sizeRange = product.sizes.length > 0
+                const sizeRange = product.sizes && product.sizes.length > 0
                   ? product.sizes[0].eu
                   : '—';
+
+                // Ambil warna brand fallback aman
+                const brandColor = BRAND_COLORS[product.brand] || '#64748b';
 
                 return (
                   <tr
@@ -223,7 +220,7 @@ export default function ProductTable({
                       <div className="w-10 h-10 rounded-lg overflow-hidden border bg-muted flex-shrink-0">
                         <AppImage
                           src={product.imageUrl}
-                          alt={`Foto ${product.brand} ${product.modelName} warna ${product.color}`}
+                          alt={`Foto ${product.brand} ${product.modelName}`}
                           width={40}
                           height={40}
                           className="w-full h-full object-cover"
@@ -234,10 +231,10 @@ export default function ProductTable({
                     {/* Brand */}
                     <td className="px-4 py-3">
                       <span
-                        className="text-2xs font-700 px-2 py-0.5 rounded-md"
+                        className="text-2xs font-700 px-2 py-0.5 rounded-md whitespace-nowrap"
                         style={{
-                          backgroundColor: `${BRAND_COLORS[product.brand]}18`,
-                          color: BRAND_COLORS[product.brand],
+                          backgroundColor: `${brandColor}18`,
+                          color: brandColor,
                         }}
                       >
                         {product.brand}
@@ -273,7 +270,6 @@ export default function ProductTable({
 
                     {/* Sizes */}
                     <td className="px-4 py-3">
-                      {/* Tampilan teks ukuran bersih sesuai ketikan admin */}
                       <span className="text-xs font-tabular text-muted-foreground whitespace-nowrap">{sizeRange}</span>
                     </td>
 
@@ -293,7 +289,7 @@ export default function ProductTable({
                     <td className="px-4 py-3">
                       <div>
                         {product.discountPercent > 0 && (
-                          <p className="text-2xs price-original font-tabular">{formatIDR(product.originalPrice)}</p>
+                          <p className="text-2xs price-original font-tabular line-through opacity-50">{formatIDR(product.originalPrice)}</p>
                         )}
                         <p className="text-sm font-700 font-tabular text-foreground">{formatIDR(product.discountedPrice)}</p>
                       </div>
@@ -303,9 +299,7 @@ export default function ProductTable({
                     <td className="px-4 py-3">
                       <span
                         className={`text-xs font-700 px-2 py-0.5 rounded-full ${
-                          product.discountPercent === 0 ? 'discount-badge-0' :
-                          product.discountPercent === 50 ? 'discount-badge-50' :
-                          product.discountPercent === 70 ? 'discount-badge-70' : 'discount-badge-80'
+                          product.discountPercent === 0 ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-600'
                         }`}
                       >
                         {product.discountPercent === 0 ? 'No disc.' : `-${product.discountPercent}%`}
@@ -319,25 +313,22 @@ export default function ProductTable({
                           onClick={() => setViewProduct(product)}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors"
                           title="Lihat detail produk"
-                          aria-label={`Lihat detail ${product.modelName}`}
                         >
                           <Eye size={15} className="text-muted-foreground" />
                         </button>
                         <button
                           onClick={() => onEdit(product)}
-                          className="p-1.5 rounded-lg hover:bg-info-bg transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
                           title="Edit produk"
-                          aria-label={`Edit ${product.modelName}`}
                         >
-                          <Edit2 size={15} style={{ color: 'var(--info)' }} />
+                          <Edit2 size={15} className="text-blue-500" />
                         </button>
                         <button
                           onClick={() => onDelete(product.id)}
-                          className="p-1.5 rounded-lg hover:bg-danger-bg transition-colors"
-                          title="Hapus produk — tindakan tidak dapat dibatalkan"
-                          aria-label={`Hapus ${product.modelName}`}
+                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Hapus produk"
                         >
-                          <Trash2 size={15} style={{ color: 'var(--danger)' }} />
+                          <Trash2 size={15} className="text-red-500" />
                         </button>
                       </div>
                     </td>
@@ -355,7 +346,7 @@ export default function ProductTable({
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="text-xs rounded-lg border bg-input text-foreground px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer"
+              className="text-xs rounded-lg border bg-input text-foreground px-2 py-1 cursor-pointer"
             >
               {PAGE_SIZES.map((s) => (
                 <option key={`pgsize-${s}`} value={s}>{s}</option>
@@ -371,7 +362,6 @@ export default function ProductTable({
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 1}
               className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              aria-label="Halaman sebelumnya"
             >
               <ChevronLeft size={16} className="text-muted-foreground" />
             </button>
@@ -384,11 +374,8 @@ export default function ProductTable({
                   key={`pgnum-${page}`}
                   onClick={() => onPageChange(page as number)}
                   className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-500 transition-all ${
-                    currentPage === page
-                      ? 'text-white shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted'
+                    currentPage === page ? 'bg-orange-500 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'
                   }`}
-                  style={currentPage === page ? { backgroundColor: 'var(--primary)' } : {}}
                 >
                   {page}
                 </button>
@@ -399,7 +386,6 @@ export default function ProductTable({
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
               className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              aria-label="Halaman berikutnya"
             >
               <ChevronRight size={16} className="text-muted-foreground" />
             </button>

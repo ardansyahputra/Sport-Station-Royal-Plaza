@@ -7,7 +7,6 @@ import {
   SlidersHorizontal,
   ShoppingBag,
   X,
-  Upload,
   CheckCircle2,
   MapPin,
   Clock,
@@ -34,7 +33,6 @@ export default function DashboardLandingPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [screenshotName, setScreenshotName] = useState('');
   const [selectedSize, setSelectedSize] = useState(''); 
 
   useEffect(() => {
@@ -108,7 +106,6 @@ Saya tertarik dan ingin memesan produk keren ini. Berikut adalah detail pesanan 
 • *Nama* : ${customerName}
 • *Email* : ${customerEmail}
 • *No. WhatsApp*: ${customerPhone}
-• *Bukti SS* : ${screenshotName ? `📸 [Sudah Dilampirkan: ${screenshotName}]` : '❌ Belum memilih file'}
 
 Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesanan ini ya. Terima kasih banyak! ✨`;
 
@@ -121,7 +118,6 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
     setCustomerName('');
     setCustomerEmail('');
     setCustomerPhone('');
-    setScreenshotName('');
     setSelectedSize('');
   };
 
@@ -514,29 +510,6 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                 </div>
               </div>
 
-              {/* Input: Upload Screenshot */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">Upload Screenshot Produk <span className="text-pink-500">*</span></label>
-                <div className="relative border-2 border-dashed border-slate-200 hover:border-orange-500 rounded-xl p-3 bg-slate-50/50 flex flex-col items-center justify-center transition-colors group cursor-pointer">
-                  <input 
-                    type="file" 
-                    accept="image/*"
-                    required
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setScreenshotName(e.target.files[0].name);
-                      }
-                    }}
-                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                  />
-                  <Upload size={18} className="text-slate-400 group-hover:text-orange-500 mb-1 transition-colors" />
-                  <p className="text-xs text-slate-700 font-bold text-center">
-                    {screenshotName ? `Selected: ${screenshotName}` : "Ambil bukti SS produk dari HP"}
-                  </p>
-                  <p className="text-[9px] text-slate-400 text-center">Format PNG, JPG, JPEG</p>
-                </div>
-              </div>
-
               {/* Input: Pilih Size Produk */}
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
@@ -603,9 +576,10 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 bg-orange-500 text-white font-extrabold text-xs uppercase tracking-widest rounded-xl hover:bg-orange-600 shadow-md shadow-orange-500/10 transition-colors"
+                  className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center justify-center gap-2"
                 >
-                  Konfirmasi Pemesanan via WhatsApp
+                  <ShoppingBag size={14} />
+                  Kirim Pesanan Ke WhatsApp
                 </button>
               </div>
 
