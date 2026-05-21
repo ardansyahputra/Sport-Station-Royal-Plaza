@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Search, Plus, Upload, Download, X, AlertTriangle, RotateCcw } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Search, Plus, Upload, Download, X, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
 
 type ProductToolbarProps = {
   search: string;
@@ -15,8 +15,9 @@ type ProductToolbarProps = {
   filterStock: string;
   onFilterStock: (v: string) => void;
   onAddProduct: () => void;
-  onImport: () => void;
+  onImport: (data: any[]) => void; // Menerima array data hasil parse
   onExport: () => void;
+  onDeleteAll: () => void; // Prop untuk aksi hapus semua data
   hasActiveFilters: boolean;
   onResetFilters: () => void;
   totalFiltered: number;
@@ -40,12 +41,115 @@ export default function ProductToolbar({
   filterCategory, onFilterCategory,
   filterStock, onFilterStock,
   onAddProduct, onImport, onExport,
+  onDeleteAll,
   hasActiveFilters, onResetFilters,
   totalFiltered, totalAll,
   lowStockCount,
 }: ProductToolbarProps) {
+  
+  // Ref untuk memicu input file HTML bawaan
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fungsi membaca file CSV saat user memilih file
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      let text = event.target?.result as string;
+      if (!text) return;
+
+      // Bersihkan BOM karakter (\uFEFF) jika diekspor dari Excel
+      if (text.startsWith('\uFEFF')) {
+        text = text.substring(1);
+      }
+
+      // Memisah baris text dan membuang baris kosong
+      const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '');
+      if (lines.length === 0) return;
+      
+      // Auto-detect pemisah kolom (, atau ;)
+      const firstLine = lines[0];
+      const separator = firstLine.includes(';') ? ';' : ',';
+
+      // Mengambil dan membersihkan header dari tanda petik, spasi, dan dibuat lowercase alternatif
+      const headers = firstLine.split(separator).map(h => 
+        h.trim().replace(/^["']|["']$/g, '').toLowerCase()
+      );
+
+      // Mapping isi baris CSV menjadi Array of Object
+      const parsedData = lines.slice(1).map(line => {
+        // Pemisahan kolom pintar yang mengabaikan pemisah di dalam tanda petik ganda ""
+        const values: string[] = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"' || char === "'") {
+            inQuotes = !inQuotes; // Toggle status jika di dalam tanda petik
+          } else if (char === separator && !inQuotes) {
+            values.push(current.trim().replace(/^["']|["']$/g, ''));
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current.trim().replace(/^["']|["']$/g, '')); // Masukkan kolom terakhir
+
+        const obj: any = {};
+        headers.forEach((header, index) => {
+          // Menyesuaikan mapping key agar dibaca dengan benar oleh sistem ImportModal / ProductFormModal Anda
+          let key = header;
+          if (header.includes('productcode')) key = 'productcode';
+          if (header.includes('brand')) key = 'brand';
+          if (header.includes('modelname')) key = 'modelname';
+          if (header.includes('color')) key = 'color';
+          if (header.includes('category')) key = 'category';
+          if (header.includes('originalprice')) key = 'originalprice';
+          if (header.includes('discountpercent')) key = 'discountpercent';
+          if (header.includes('discountedprice')) key = 'discountedprice';
+          if (header.includes('image')) key = 'image';
+
+          // Mapping data internal sizes seandainya ditarik kembali dari file export
+          if (header.includes('sizes')) {
+            // Jika ada text format "40 (5 pcs) | 41 (12 pcs)", ubah balik ke Array Object
+            const sizesRaw = values[index] || '';
+            if (sizesRaw && sizesRaw !== '-') {
+              obj['sizes'] = sizesRaw.split('|').map(item => {
+                const match = item.trim().match(/^([a-zA-Z0-9.\-/]+)\s*\((\d+)\s*pcs\)$/);
+                return match ? { size: match[1], stock: Number(match[2]) } : null;
+              }).filter(Boolean);
+            }
+          }
+
+          obj[key] = values[index] || '';
+        });
+        return obj;
+      });
+
+      // Kirim hasil olahan data ke komponen utama (ImportModal / ProductManagementContent)
+      onImport(parsedData);
+      
+      // Reset input agar bisa upload file yang sama jika dibutuhkan kembali
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    reader.readAsText(file, 'UTF-8');
+  };
+
   return (
     <div className="bg-card rounded-xl border shadow-card p-4 space-y-3">
+      {/* Input File Tersembunyi */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        accept=".csv" 
+        className="hidden" 
+      />
+
       {/* Top row: search + actions */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search */}
@@ -86,8 +190,18 @@ export default function ProductToolbar({
         )}
 
         {/* Actions */}
+        {totalAll > 0 && (
+          <button
+            onClick={onDeleteAll}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-500 text-red-600 bg-red-50 hover:bg-red-100 transition-all active:scale-95"
+          >
+            <Trash2 size={15} />
+            <span className="hidden sm:inline">Hapus Semua</span>
+          </button>
+        )}
+
         <button
-          onClick={onImport}
+          onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-500 text-muted-foreground bg-muted hover:bg-border transition-all active:scale-95"
         >
           <Upload size={15} />
@@ -112,7 +226,6 @@ export default function ProductToolbar({
 
       {/* Filter row */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Brand filter */}
         <select
           value={filterBrand}
           onChange={(e) => onFilterBrand(e.target.value)}
@@ -122,7 +235,6 @@ export default function ProductToolbar({
           {BRANDS.map((b) => <option key={`filter-brand-${b}`} value={b}>{b}</option>)}
         </select>
 
-        {/* Discount filter */}
         <select
           value={filterDiscount}
           onChange={(e) => onFilterDiscount(e.target.value)}
@@ -132,7 +244,6 @@ export default function ProductToolbar({
           {DISCOUNTS.map((d) => <option key={`filter-disc-${d}`} value={d}>Diskon {d}%</option>)}
         </select>
 
-        {/* Category filter */}
         <select
           value={filterCategory}
           onChange={(e) => onFilterCategory(e.target.value)}
@@ -142,7 +253,6 @@ export default function ProductToolbar({
           {CATEGORIES.map((c) => <option key={`filter-cat-${c}`} value={c}>{c}</option>)}
         </select>
 
-        {/* Stock filter */}
         <select
           value={filterStock}
           onChange={(e) => onFilterStock(e.target.value)}
@@ -152,7 +262,6 @@ export default function ProductToolbar({
           {STOCK_FILTERS.map((sf) => <option key={`filter-stock-${sf.value}`} value={sf.value}>{sf.label}</option>)}
         </select>
 
-        {/* Reset filters */}
         {hasActiveFilters && (
           <button
             onClick={onResetFilters}

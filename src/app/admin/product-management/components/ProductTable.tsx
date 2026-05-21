@@ -32,7 +32,7 @@ const BRAND_COLORS: Record<string, string> = {
   Diadora: '#059669',
   'New Balance': '#7C3AED',
   Reebok: '#D97706',
-  SKECHERS: '#0284c7', // Menambahkan warna cadangan jika dibutuhkan
+  SKECHERS: '#0284c7',
   Nike: '#ea580c',
   Puma: '#1e293b'
 };
@@ -61,6 +61,9 @@ export default function ProductTable({
   onPageChange, onPageSizeChange, lowStockProductIds,
 }: ProductTableProps) {
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
+
+  // 1. Tambah log untuk melihat seluruh list produk yang masuk ke komponen
+  console.log('--- DATA PRODUCTS DI DALAM TABLE ---', products);
 
   const allSelected = products.length > 0 && products.every((p) => selectedIds.has(p.id));
   const someSelected = products.some((p) => selectedIds.has(p.id)) && !allSelected;
@@ -146,7 +149,7 @@ export default function ProductTable({
                   Kategori
                 </th>
                 <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-                  Ukuran EU
+                  Ukuran 
                 </th>
                 <th
                   className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
@@ -182,7 +185,13 @@ export default function ProductTable({
             </thead>
             <tbody>
               {products.map((product) => {
-                // ✅ PERBAIKAN: Gunakan pembacaan angka aman (Number) agar deteksi perubahan stok terbaca React
+                // 2. Tambah log per produk untuk mengecek isi url gambar spesifiknya
+                console.log(`Produk ID ${product.id || 'Tanpa ID'}:`, {
+                  modelName: product.modelName,
+                  imageUrlProperty: product.imageUrl,
+                  allKeysOfProduct: Object.keys(product) 
+                });
+
                 const totalStock = Array.isArray(product.sizes)
                   ? product.sizes.reduce((s, sz) => s + (Number(sz?.stock) || 0), 0)
                   : 0;
@@ -194,7 +203,6 @@ export default function ProductTable({
                   ? product.sizes[0].eu
                   : '—';
 
-                // Ambil warna brand fallback aman
                 const brandColor = BRAND_COLORS[product.brand] || '#64748b';
 
                 return (

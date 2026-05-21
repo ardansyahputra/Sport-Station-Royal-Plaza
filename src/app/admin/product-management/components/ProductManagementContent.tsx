@@ -24,7 +24,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 export default function ProductManagementContent() {
   /* =====================================================
-     STATE
+      STATE
   ===================================================== */
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -43,13 +43,13 @@ export default function ProductManagementContent() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // TRICK: State key untuk memaksa rerender ProductTable secara instan tanpa refresh web
   const [tableKey, setTableKey] = useState(0);
 
   /* =====================================================
-     LOAD STORAGE
+      LOAD STORAGE
   ===================================================== */
   const loadProducts = async () => {
     const storedProducts = await getStoredProducts();
@@ -67,14 +67,14 @@ export default function ProductManagementContent() {
   }, []);
 
   /* =====================================================
-     LOW STOCK
+      LOW STOCK
   ===================================================== */
   const lowStockAlerts = useMemo(() => {
     return computeLowStockAlerts(products, 3);
   }, [products]);
 
   /* =====================================================
-     FILTER + SEARCH + SORT
+      FILTER + SEARCH + SORT
   ===================================================== */
   const filtered = useMemo(() => {
     let result = [...products];
@@ -148,13 +148,13 @@ export default function ProductManagementContent() {
   }, [products, search, filterBrand, filterDiscount, filterCategory, filterStock, sortKey, sortDir, lowStockAlerts]);
 
   /* =====================================================
-     PAGINATION
+      PAGINATION
   ===================================================== */
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   /* =====================================================
-     SORT
+      SORT
   ===================================================== */
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -167,7 +167,7 @@ export default function ProductManagementContent() {
   };
 
   /* =====================================================
-     SELECT
+      SELECT
   ===================================================== */
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -197,7 +197,7 @@ export default function ProductManagementContent() {
   };
 
   /* =====================================================
-     SAVE PRODUCT
+      SAVE PRODUCT
   ===================================================== */
   const handleSaveProduct = async (product: Product) => {
     let nextProducts: Product[] = [];
@@ -210,12 +210,9 @@ export default function ProductManagementContent() {
       toast.success(`Produk "${product.modelName}" berhasil ditambahkan`);
     }
 
-    // Update state utama
     setProducts(nextProducts);
     setFormModalOpen(false);
     setEditingProduct(null);
-    
-    // 🔥 PENTING: Ubah key agar ProductTable dipaksa re-render data baru secara instant!
     setTableKey((prev) => prev + 1);
 
     try {
@@ -226,7 +223,7 @@ export default function ProductManagementContent() {
   };
 
   /* =====================================================
-     DELETE SINGLE
+      DELETE SINGLE
   ===================================================== */
   const handleDeleteProduct = async (id: string) => {
     setDeleteLoading(true);
@@ -242,8 +239,6 @@ export default function ProductManagementContent() {
 
     setDeleteTarget(null);
     setDeleteLoading(false);
-    
-    // 🔥 Ubah key tabel setelah hapus produk
     setTableKey((prev) => prev + 1);
     
     toast.success(`Produk "${product?.modelName}" dihapus`);
@@ -256,7 +251,7 @@ export default function ProductManagementContent() {
   };
 
   /* =====================================================
-     BULK DELETE
+      BULK DELETE
   ===================================================== */
   const handleBulkDelete = async () => {
     setDeleteLoading(true);
@@ -267,8 +262,6 @@ export default function ProductManagementContent() {
     setSelectedIds(new Set());
     setBulkDeleteOpen(false);
     setDeleteLoading(false);
-    
-    // 🔥 Ubah key tabel setelah hapus massal
     setTableKey((prev) => prev + 1);
     
     toast.success(`${count} produk berhasil dihapus`);
@@ -281,37 +274,175 @@ export default function ProductManagementContent() {
   };
 
   /* =====================================================
-     EXPORT CSV
+      DELETE ALL DATA
   ===================================================== */
-  const handleExport = () => {
-    const headers = ['productCode', 'brand', 'modelName', 'color', 'category', 'originalPrice', 'discountPercent', 'discountedPrice'];
-    const rows = filtered.map((p) =>
-      [p.productCode, p.brand, p.modelName, p.color, p.category, p.originalPrice, p.discountPercent, p.discountedPrice].join(',')
-    );
+  const handleDeleteAll = async () => {
+    setDeleteLoading(true);
+    setProducts([]);
+    setSelectedIds(new Set());
+    setDeleteAllOpen(false);
+    setDeleteLoading(false);
+    setTableKey((prev) => prev + 1);
+    
+    toast.success("Seluruh data produk berhasil dikosongkan");
 
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `products-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`${filtered.length} produk berhasil diekspor`);
+    try {
+      await saveStoredProducts([]);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   /* =====================================================
-     IMPORT
+      EXPORT CSV (SESUAI TEMPLATE SPORT STATION)
   ===================================================== */
-  const handleImportProducts = async (newProducts: Product[]) => {
-    const nextProducts = [...newProducts, ...products];
+  const handleExport = () => {
+    // Header kolom disesuaikan persis seperti template-import-sport-station.csv
+    const headers = [
+      'productCode',
+      'fullSkuCode',
+      'brand',
+      'modelName',
+      'color',
+      'category',
+      'originalPrice',
+      'discountPercent',
+      'imageUrl',
+      'sizeEU',
+      'sizeUK',
+      'sizeUS',
+      'sizeCM',
+      'stock'
+    ];
+
+    const rows: string[] = [];
+
+    filtered.forEach((p) => {
+      const originalPrice = p.originalPrice || 0;
+      const discountPercent = p.discountPercent || 0;
+      const fullSku = p.fullSkuCode || '';
+      const imageUrl = p.imageUrl || '';
+
+      if (p.sizes && p.sizes.length > 0) {
+        // Jika data internal menggunakan array ukuran (misalnya hasil import)
+        p.sizes.forEach((sz) => {
+          const currentSizeEU = sz.eu || (sz as any).size || '';
+          const currentStock = sz.stock ?? 0;
+
+          // Buat baris baru untuk setiap pecahan ukuran produk
+          const row = [
+            p.productCode,
+            fullSku,
+            p.brand,
+            p.modelName,
+            p.color,
+            p.category,
+            originalPrice,
+            discountPercent,
+            imageUrl,
+            currentSizeEU,
+            sz.uk || '',
+            sz.us || '',
+            sz.cm || '',
+            currentStock
+          ].join(',');
+          rows.push(row);
+        });
+      } else {
+        // Fallback jika tidak ada data ukuran sama sekali
+        const row = [
+          p.productCode,
+          fullSku,
+          p.brand,
+          p.modelName,
+          p.color,
+          p.category,
+          originalPrice,
+          discountPercent,
+          imageUrl,
+          '', '', '', '', 0
+        ].join(',');
+        rows.push(row);
+      }
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sport-station-products-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Berhasil mengekspor ${rows.length} baris ukuran produk`);
+  };
+
+  /* =====================================================
+      IMPORT PRODUCTS (MENGGABUNGKAN BARIS UKURAN TEMPLATE)
+  ===================================================== */
+  const handleImportProducts = async (parsedRows: any[]) => {
+    if (!parsedRows || parsedRows.length === 0) return;
+
+    const productMap: { [code: string]: Product } = {};
+
+    parsedRows.forEach((row) => {
+      // Ambil kode produk utama
+      const productCode = row['productcode'] || row['productCode'];
+      if (!productCode) return;
+
+      const sizeEU = row['sizeeu'] || row['sizeEU'] || row['size'] || '';
+      const stock = Number(row['stock']) || 0;
+
+      // Hitung kalkulasi harga diskon otomatis
+      const originalPrice = Number(row['originalprice'] || row['originalPrice']) || 0;
+      const discountPercent = Number(row['discountpercent'] || row['discountPercent']) || 0;
+      const discountedPrice = Math.round(originalPrice * (1 - discountPercent / 100));
+
+      if (!productMap[productCode]) {
+        productMap[productCode] = {
+          id: productCode, // Menggunakan productCode sebagai primary ID agar tidak duplikat
+          productCode: productCode,
+          fullSkuCode: row['fullskucode'] || row['fullSkuCode'] || '',
+          brand: row['brand'] || 'Airwalk',
+          modelName: row['modelname'] || row['modelName'] || '',
+          color: row['color'] || '',
+          category: (row['category'] || 'UNISEX').toUpperCase() as any,
+          imageUrl: row['imageurl'] || row['imageUrl'] || row['image'] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
+          originalPrice,
+          discountPercent: discountPercent as any,
+          discountedPrice,
+          sizes: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+
+      // Masukkan baris ukuran saat ini ke properti sizes internal (.eu)
+      if (sizeEU) {
+        productMap[productCode].sizes.push({
+          eu: String(sizeEU),
+          uk: row['sizeuk'] || row['sizeUK'] || '',
+          us: row['sizeus'] || row['sizeUS'] || '',
+          cm: row['sizecm'] || row['sizeCM'] || '',
+          stock: stock,
+        });
+      }
+    });
+
+    const newProductsArray = Object.values(productMap);
+    
+    // Gabungkan dengan produk lama (pastikan tidak duplikat id)
+    const oldProductsFiltered = products.filter(
+      (op) => !productMap[op.productCode]
+    );
+
+    const nextProducts = [...newProductsArray, ...oldProductsFiltered];
+    
     setProducts(nextProducts);
     setImportModalOpen(false);
-    
-    // 🔥 Ubah key tabel setelah import produk
     setTableKey((prev) => prev + 1);
     
-    toast.success(`${newProducts.length} produk berhasil diimport`);
+    toast.success(`Berhasil memuat ${newProductsArray.length} produk dari file template`);
 
     try {
       await saveStoredProducts(nextProducts);
@@ -345,8 +476,9 @@ export default function ProductManagementContent() {
         filterStock={filterStock}
         onFilterStock={(v) => { setFilterStock(v); setCurrentPage(1); }}
         onAddProduct={handleAddProduct}
-        onImport={() => setImportModalOpen(true)}
+        onImport={handleImportProducts} // Disambungkan ke pengolah baris template di atas
         onExport={handleExport}
+        onDeleteAll={() => setDeleteAllOpen(true)}
         hasActiveFilters={!!hasActiveFilters}
         onResetFilters={resetFilters}
         totalFiltered={filtered.length}
@@ -354,7 +486,6 @@ export default function ProductManagementContent() {
         lowStockCount={lowStockAlerts.length}
       />
 
-      {/* 🌟 DI SINI PERUBAHANNYA: Menambahkan properti key={tableKey} */}
       <ProductTable
         key={tableKey}
         products={paginated}
@@ -407,6 +538,17 @@ export default function ProductManagementContent() {
         title="Hapus Produk Massal"
         message={`Anda akan menghapus ${selectedIds.size} produk.`}
         confirmLabel={`Hapus ${selectedIds.size} Produk`}
+        isDestructive
+        isLoading={deleteLoading}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteAllOpen}
+        onClose={() => setDeleteAllOpen(false)}
+        onConfirm={handleDeleteAll}
+        title="Hapus Seluruh Data"
+        message="Peringatan keras! Tindakan ini akan menghapus semua data produk di database Anda secara permanen. Apakah Anda benar-benar yakin?"
+        confirmLabel="Ya, Hapus Semua Data"
         isDestructive
         isLoading={deleteLoading}
       />

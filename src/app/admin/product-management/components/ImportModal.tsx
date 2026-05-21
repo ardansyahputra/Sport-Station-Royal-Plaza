@@ -17,15 +17,21 @@ type ImportResult = {
   products: Product[];
 };
 
-const CSV_TEMPLATE_HEADERS = [
-  'productCode', 'fullSkuCode', 'brand', 'modelName', 'color',
-  'category', 'originalPrice', 'discountPercent', 'imageUrl',
-  'sizeEU', 'sizeUK', 'sizeUS', 'sizeCM', 'stock',
-];
-
-const SAMPLE_CSV = `productCode,fullSkuCode,brand,modelName,color,category,originalPrice,discountPercent,imageUrl,sizeEU,sizeUK,sizeUS,sizeCM,stock
-AIWCL999001,AIWCL999001018036,Airwalk,AIW SAMPLE (A/W),WHITE,WOMEN,499000,70,,36,3.5,6,23,5
-AIWCL999001,AIWCL999001018037,Airwalk,AIW SAMPLE (A/W),WHITE,WOMEN,499000,70,,37,4,6.5,23.5,3`;
+// Fungsi Ekstraksi: Mengubah link pencarian Google Image menjadi link file gambar mentah (.png/.jpg)
+function extractDirectImageUrl(url: string): string {
+  if (!url) return '';
+  try {
+    const decodedUrl = decodeURIComponent(url);
+    if (decodedUrl.includes('imgurl=')) {
+      const urlParams = new URLSearchParams(decodedUrl.split('?')[1]);
+      const imgUrl = urlParams.get('imgurl');
+      if (imgUrl) return imgUrl;
+    }
+  } catch (e) {
+    console.error('Gagal mengekstrak URL Gambar Google:', e);
+  }
+  return url;
+}
 
 function parseMockCSV(csvText: string): ImportResult {
   const lines = csvText.trim().split('\n');
@@ -36,37 +42,72 @@ function parseMockCSV(csvText: string): ImportResult {
     return { success: 0, errors: ['File CSV kosong atau tidak memiliki data'], products: [] };
   }
 
-  const headers = lines[0].split(',').map((h) => h.trim());
+  // Otomatis deteksi separator (titik koma ";" atau koma ",")
+  const separator = lines[0].includes(';') ? ';' : ',';
+
+  // Ambil header dan bersihkan dari hidden character seperti \r (Carriage Return dari Windows Excel)
+  const headers = lines[0].split(separator).map((h) => h.trim().replace(/[\r\n]/g, ''));
+  
   const requiredHeaders = ['productCode', 'brand', 'modelName', 'category', 'originalPrice', 'discountPercent'];
   const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
+  
   if (missingHeaders.length > 0) {
     return { success: 0, errors: [`Header kolom tidak lengkap: ${missingHeaders.join(', ')}`], products: [] };
   }
 
-  const VALID_BRANDS = ['Airwalk', 'Converse', 'Diadora', 'New Balance', 'Reebok'];
-  const VALID_CATEGORIES = ['MEN', 'WOMEN', 'UNISEX', 'KIDS', 'INFANT'];
-  const VALID_DISCOUNTS = [0, 50, 70, 80];
+  // Daftar validasi master data toleran (huruf besar/kecil disamakan di bawah)
+  const VALID_BRANDS = ['Airwalk', 'Converse', 'Diadora', 'New Balance', 'Reebok', 'Puma', 'Nike', 'SKECHERS'];
+  const VALID_CATEGORIES = ['MEN', 'WOMEN', 'UNISEX', 'KIDS', 'INFANT', 'FOOTWEAR'];
+  const VALID_DISCOUNTS = [0, 10, 20, 30];
 
   lines.slice(1).forEach((line, idx) => {
     const rowNum = idx + 2;
     if (!line.trim()) return;
 
-    const values = line.split(',').map((v) => v.trim());
+    // Pecah baris dan bersihkan hidden carriage return (\r)
+    const values = line.split(separator).map((v) => v.trim().replace(/[\r\n]/g, ''));
     const row: Record<string, string> = {};
     headers.forEach((h, i) => { row[h] = values[i] ?? ''; });
 
     const productCode = row.productCode;
-    const brand = row.brand as Product['brand'];
-    const modelName = row.modelName;
-    const category = row.category as Product['category'];
-    const originalPrice = Number(row.originalPrice);
-    const discountPercent = Number(row.discountPercent) as 0 | 50 | 70 | 80;
-
     if (!productCode) { errors.push(`Baris ${rowNum}: Kode produk kosong`); return; }
-    if (!VALID_BRANDS.includes(brand)) { errors.push(`Baris ${rowNum}: Brand "${brand}" tidak valid`); return; }
+
+    // 1. Ambil & Rapikan Brand (Contoh: 'airwalk' -> 'Airwalk', 'nike' -> 'Nike')
+    let rawBrand = (row.brand || '').trim();
+    let normalizedBrand = rawBrand;
+    if (rawBrand) {
+      normalizedBrand = rawBrand.charAt(0).toUpperCase() + rawBrand.slice(1).toLowerCase();
+      // Handle khusus brand dengan spasi seperti New Balance
+      if (normalizedBrand.toLowerCase() === 'new balance') {
+        normalizedBrand = 'New Balance';
+      }
+    }
+    const brand = normalizedBrand as Product['brand'];
+    
+    const modelName = row.modelName;
+    
+    // 2. Ambil & Rapikan Kategori ke Huruf Kapital (Contoh: 'footwear' -> 'FOOTWEAR')
+    const category = (row.category || '').toUpperCase() as Product['category'];
+    
+    const originalPrice = Number(row.originalPrice);
+    
+    // 3. AMBIL & PAKSA DATA DISKON KE ANGKA VALID (Menghapus tanda % jika ada)
+    const rawDiscount = (row.discountPercent || '').replace('%', '').trim();
+    let discountPercent = rawDiscount === '' ? 0 : Number(rawDiscount);
+    
+    // Jika data diskon di excel bukan 0, 10, 20, atau 30, paksa ke 0 agar tidak merusak state utama
+    if (!VALID_DISCOUNTS.includes(discountPercent)) {
+      discountPercent = 0;
+    }
+
+    // 4. Ambil Gambar & Bongkar secara otomatis jika berupa link pencarian Google
+    const rawImageUrl = row.imageUrl ? row.imageUrl.trim() : '';
+    const imageUrl = extractDirectImageUrl(rawImageUrl);
+
+    // Validasi Baris sebelum dimasukkan ke Array Produk
+    if (!VALID_BRANDS.includes(brand)) { errors.push(`Baris ${rowNum}: Brand "${brand}" tidak terdaftar di sistem`); return; }
     if (!VALID_CATEGORIES.includes(category)) { errors.push(`Baris ${rowNum}: Kategori "${category}" tidak valid`); return; }
-    if (isNaN(originalPrice) || originalPrice < 0) { errors.push(`Baris ${rowNum}: Harga tidak valid`); return; }
-    if (!VALID_DISCOUNTS.includes(discountPercent)) { errors.push(`Baris ${rowNum}: Diskon ${discountPercent}% tidak valid (0/50/70/80)`); return; }
+    if (isNaN(originalPrice) || originalPrice < 0) { errors.push(`Baris ${rowNum}: Harga asli tidak valid`); return; }
 
     const sizeEU = row.sizeEU ?? '';
     const sizeEntry = sizeEU ? {
@@ -80,19 +121,22 @@ function parseMockCSV(csvText: string): ImportResult {
     if (productMap.has(productCode)) {
       const existing = productMap.get(productCode)!;
       if (sizeEntry) existing.sizes.push(sizeEntry);
+      if (!existing.imageUrl && imageUrl) existing.imageUrl = imageUrl;
     } else {
+      // Hitung harga diskon secara matematika bulat
       const discountedPrice = Math.round(originalPrice * (1 - discountPercent / 100));
+      
       const product: Product = {
         id: `import-${productCode}-${Date.now()}`,
         productCode,
-        fullSkuCode: row.fullSkuCode ?? productCode,
+        fullSkuCode: row.fullSkuCode || productCode,
         brand,
         modelName,
         color: row.color ?? '',
         category,
-        imageUrl: row.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=80&h=80&fit=crop',
+        imageUrl: imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=80&h=80&fit=crop',
         originalPrice,
-        discountPercent,
+        discountPercent: discountPercent as 0 | 10 | 20 | 30, // Dipastikan berupa angka murni tipe diskon
         discountedPrice,
         sizes: sizeEntry ? [sizeEntry] : [],
         createdAt: new Date().toISOString(),
@@ -122,7 +166,6 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
     await new Promise((r) => setTimeout(r, 600));
 
     const text = await file.text();
-    // Backend integration point: POST /api/products/import with multipart/form-data
     const result = parseMockCSV(text);
     setImportResult(result);
     setIsProcessing(false);
@@ -141,6 +184,7 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
   };
 
   const handleDownloadTemplate = () => {
+    const SAMPLE_CSV = `productCode;fullSkuCode;brand;modelName;color;category;originalPrice;discountPercent;imageUrl;sizeEU;sizeUK;sizeUS;sizeCM;stock\naiwxxx;sjsjsj;airwalk;dika;black;footwear;199000;30%;https://static.nike.com/a/images/t_web_pdp_535_v2/f_auto,u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/zvggo9fhlalzrv9hc7j1/AIR+MAX+PLUS+%28GS%29.png;36;;;;35`;
     const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -154,6 +198,7 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
     if (importResult && importResult.products.length > 0) {
       onImport(importResult.products);
     }
+    handleClose();
   };
 
   const handleClose = () => {
@@ -192,13 +237,12 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
       }
     >
       <div className="space-y-4">
-        {/* Template download */}
         <div className="flex items-start gap-3 p-3 rounded-xl border" style={{ backgroundColor: 'var(--info-bg)', borderColor: 'rgba(37,99,235,0.2)' }}>
           <FileText size={16} style={{ color: 'var(--info)' }} className="flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-xs font-600" style={{ color: 'var(--info)' }}>Gunakan template CSV yang disediakan</p>
+            <p className="text-xs font-600" style={{ color: 'var(--info)' }}>Mendukung pemisah titik koma (;) dan otomatis bersihkan tipe diskon</p>
             <p className="text-2xs text-muted-foreground mt-0.5">
-              Kolom wajib: productCode, brand, modelName, category, originalPrice, discountPercent
+              Diskon valid di sistem: 0%, 10%, 20%, atau 30%. Jika mengisi di luar angka tersebut akan otomatis terbaca sebagai 0% (No Discount).
             </p>
           </div>
           <button
@@ -211,7 +255,6 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
           </button>
         </div>
 
-        {/* Drop zone */}
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -226,7 +269,7 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,.xlsx,.xls"
+            accept=".csv"
             className="hidden"
             onChange={handleFileInput}
           />
@@ -244,17 +287,14 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
           ) : (
             <div className="flex flex-col items-center gap-2">
               <Upload size={28} className="text-muted-foreground opacity-50" />
-              <p className="text-sm font-600 text-foreground">Seret & lepas file di sini</p>
-              <p className="text-xs text-muted-foreground">atau klik untuk memilih file</p>
-              <p className="text-2xs text-muted-foreground mt-1">Format didukung: CSV, XLSX, XLS</p>
+              <p className="text-sm font-600 text-foreground">Seret & lepas file CSV di sini</p>
+              <p className="text-xs text-muted-foreground">atau klik untuk memilih file dari komputer</p>
             </div>
           )}
         </div>
 
-        {/* Import result */}
         {importResult && (
           <div className="space-y-3 animate-slide-up">
-            {/* Summary */}
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center p-3 rounded-xl border" style={{ backgroundColor: 'var(--success-bg)', borderColor: 'rgba(22,163,74,0.2)' }}>
                 <p className="text-xl font-700 font-tabular" style={{ color: 'var(--success)' }}>{importResult.success}</p>
@@ -270,7 +310,6 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
               </div>
             </div>
 
-            {/* Errors */}
             {importResult.errors.length > 0 && (
               <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(220,38,38,0.3)' }}>
                 <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ backgroundColor: 'var(--danger-bg)', borderColor: 'rgba(220,38,38,0.2)' }}>
@@ -287,15 +326,6 @@ export default function ImportModal({ isOpen, onClose, onImport }: ImportModalPr
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {importResult.success > 0 && (
-              <div className="flex items-center gap-2 p-3 rounded-xl border" style={{ backgroundColor: 'var(--success-bg)', borderColor: 'rgba(22,163,74,0.2)' }}>
-                <CheckCircle size={15} style={{ color: 'var(--success)' }} />
-                <p className="text-xs font-500" style={{ color: 'var(--success)' }}>
-                  {importResult.success} produk siap diimport. Klik tombol &quot;Import&quot; untuk melanjutkan.
-                </p>
               </div>
             )}
           </div>
