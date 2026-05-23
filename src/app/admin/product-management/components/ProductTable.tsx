@@ -62,7 +62,7 @@ export default function ProductTable({
 }: ProductTableProps) {
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
 
-  // 1. Tambah log untuk melihat seluruh list produk yang masuk ke komponen
+  // 1. Log untuk melihat seluruh list produk yang masuk ke komponen
   console.log('--- DATA PRODUCTS DI DALAM TABLE ---', products);
 
   const allSelected = products.length > 0 && products.every((p) => selectedIds.has(p.id));
@@ -185,7 +185,7 @@ export default function ProductTable({
             </thead>
             <tbody>
               {products.map((product) => {
-                // 2. Tambah log per produk untuk mengecek isi url gambar spesifiknya
+                // 2. Log per produk untuk mengecek isi url gambar spesifiknya
                 console.log(`Produk ID ${product.id || 'Tanpa ID'}:`, {
                   modelName: product.modelName,
                   imageUrlProperty: product.imageUrl,
@@ -196,7 +196,13 @@ export default function ProductTable({
                   ? product.sizes.reduce((s, sz) => s + (Number(sz?.stock) || 0), 0)
                   : 0;
 
-                const isLowStock = lowStockProductIds.has(product.id);
+                // Proteksi Tipe Data: Memastikan fungsi .has() dipanggil dengan benar
+                const isLowStock = (lowStockProductIds instanceof Set)
+                  ? lowStockProductIds.has(product.id)
+                  : Array.isArray(lowStockProductIds)
+                    ? (lowStockProductIds as string[]).includes(product.id)
+                    : false;
+
                 const isSelected = selectedIds.has(product.id);
                 
                 const sizeRange = product.sizes && product.sizes.length > 0

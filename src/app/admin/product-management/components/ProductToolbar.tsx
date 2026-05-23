@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { Search, Plus, Upload, Download, X, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Search, Plus, Upload, Download, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
+import type { Product } from '@/lib/mockData';
 
 type ProductToolbarProps = {
   search: string;
@@ -15,9 +16,9 @@ type ProductToolbarProps = {
   filterStock: string;
   onFilterStock: (v: string) => void;
   onAddProduct: () => void;
-  onImport: (data: any[]) => void; // Menerima array data hasil parse
+  onImport: (products: Product[]) => void;
   onExport: () => void;
-  onDeleteAll: () => void; // Prop untuk aksi hapus semua data
+  onDeleteAll: () => void;
   hasActiveFilters: boolean;
   onResetFilters: () => void;
   totalFiltered: number;
@@ -25,211 +26,213 @@ type ProductToolbarProps = {
   lowStockCount: number;
 };
 
-const BRANDS = ['Airwalk', 'Converse', 'Diadora', 'New Balance', 'Reebok','Puma','Nike','SKECHERS',];
+const BRANDS = ['Airwalk', 'Converse', 'Diadora', 'New Balance', 'Reebok', 'Puma', 'Nike', 'SKECHERS'];
 const DISCOUNTS = ['0', '10', '20', '30'];
-const CATEGORIES = ['MEN', 'WOMEN', 'UNISEX', 'KIDS', 'INFANT'];
+const CATEGORIES = ['MEN', 'WOMEN', 'UNISEX', 'KIDS', 'INFANT', 'FOOTWEAR'];
 const STOCK_FILTERS = [
-  { value: 'in', label: 'Stok Aman' },
-  { value: 'low', label: 'Stok Rendah' },
-  { value: 'out', label: 'Habis Stok' },
+  { value: 'out', label: 'Stok Habis (= 0)' },
+  { value: 'low', label: 'Stok Kritis (1 - 3)' },
+  { value: 'safe', label: 'Stok Aman (> 3)' },
 ];
 
 export default function ProductToolbar({
-  search, onSearchChange,
-  filterBrand, onFilterBrand,
-  filterDiscount, onFilterDiscount,
-  filterCategory, onFilterCategory,
-  filterStock, onFilterStock,
-  onAddProduct, onImport, onExport,
+  search,
+  onSearchChange,
+  filterBrand,
+  onFilterBrand,
+  filterDiscount,
+  onFilterDiscount,
+  filterCategory,
+  onFilterCategory,
+  filterStock,
+  onFilterStock,
+  onAddProduct,
+  onImport,
+  onExport,
   onDeleteAll,
-  hasActiveFilters, onResetFilters,
-  totalFiltered, totalAll,
+  hasActiveFilters,
+  onResetFilters,
+  totalFiltered,
+  totalAll,
   lowStockCount,
 }: ProductToolbarProps) {
-  
-  // Ref untuk memicu input file HTML bawaan
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fungsi membaca file CSV saat user memilih file
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      let text = event.target?.result as string;
-      if (!text) return;
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        const lines = text.trim().split(/\r?\n/);
+        if (lines.length < 2) return;
 
-      // Bersihkan BOM karakter (\uFEFF) jika diekspor dari Excel
-      if (text.startsWith('\uFEFF')) {
-        text = text.substring(1);
-      }
+        const separator = ',';
+        const headers = lines[0]
+          .replace(/^\uFEFF/, '')
+          .split(separator)
+          .map((h) => h.trim().replace(/^["']|["']$/g, ''));
 
-      // Memisah baris text dan membuang baris kosong
-      const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '');
-      if (lines.length === 0) return;
-      
-      // Auto-detect pemisah kolom (, atau ;)
-      const firstLine = lines[0];
-      const separator = firstLine.includes(';') ? ';' : ',';
+        const productMap = new Map<string, Product>();
 
-      // Mengambil dan membersihkan header dari tanda petik, spasi, dan dibuat lowercase alternatif
-      const headers = firstLine.split(separator).map(h => 
-        h.trim().replace(/^["']|["']$/g, '').toLowerCase()
-      );
+        lines.slice(1).forEach((line) => {
+          if (!line.trim()) return;
 
-      // Mapping isi baris CSV menjadi Array of Object
-      const parsedData = lines.slice(1).map(line => {
-        // Pemisahan kolom pintar yang mengabaikan pemisah di dalam tanda petik ganda ""
-        const values: string[] = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === '"' || char === "'") {
-            inQuotes = !inQuotes; // Toggle status jika di dalam tanda petik
-          } else if (char === separator && !inQuotes) {
-            values.push(current.trim().replace(/^["']|["']$/g, ''));
-            current = '';
-          } else {
-            current += char;
-          }
-        }
-        values.push(current.trim().replace(/^["']|["']$/g, '')); // Masukkan kolom terakhir
-
-        const obj: any = {};
-        headers.forEach((header, index) => {
-          // Menyesuaikan mapping key agar dibaca dengan benar oleh sistem ImportModal / ProductFormModal Anda
-          let key = header;
-          if (header.includes('productcode')) key = 'productcode';
-          if (header.includes('brand')) key = 'brand';
-          if (header.includes('modelname')) key = 'modelname';
-          if (header.includes('color')) key = 'color';
-          if (header.includes('category')) key = 'category';
-          if (header.includes('originalprice')) key = 'originalprice';
-          if (header.includes('discountpercent')) key = 'discountpercent';
-          if (header.includes('discountedprice')) key = 'discountedprice';
-          if (header.includes('image')) key = 'image';
-
-          // Mapping data internal sizes seandainya ditarik kembali dari file export
-          if (header.includes('sizes')) {
-            // Jika ada text format "40 (5 pcs) | 41 (12 pcs)", ubah balik ke Array Object
-            const sizesRaw = values[index] || '';
-            if (sizesRaw && sizesRaw !== '-') {
-              obj['sizes'] = sizesRaw.split('|').map(item => {
-                const match = item.trim().match(/^([a-zA-Z0-9.\-/]+)\s*\((\d+)\s*pcs\)$/);
-                return match ? { size: match[1], stock: Number(match[2]) } : null;
-              }).filter(Boolean);
+          // Ekstraksi nilai CSV dengan penanganan tanda koma dalam tanda kutip ganda ""
+          const values: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === separator && !inQuotes) {
+              values.push(current.trim());
+              current = '';
+            } else {
+              current += char;
             }
           }
+          values.push(current.trim());
 
-          obj[key] = values[index] || '';
+          const row: Record<string, string> = {};
+          headers.forEach((h, i) => {
+            row[h] = (values[i] ?? '').replace(/^"|"$/g, '').trim();
+          });
+
+          // Mengakomodasi key map Sport Station ("Article Code") maupun fallback format lama ("productCode")
+          const productCode = row['Article Code'] || row['productCode'];
+          if (!productCode) return;
+
+          const modelName = row['Description'] || row['modelName'] || '';
+          
+          const origPriceRaw = String(row['originalPrice'] || '0').replace(/,/g, '');
+          const originalPrice = Number(origPriceRaw);
+
+          const discPriceRaw = String(row['DiscountPrice'] || '0').replace(/,/g, '');
+          let discountedPrice = Number(discPriceRaw);
+
+          let discountPercent: 0 | 10 | 20 | 30 = 0;
+          if (originalPrice > 0 && !isNaN(discountedPrice)) {
+            const computedDiffPct = Math.round(((originalPrice - discountedPrice) / originalPrice) * 100);
+            if (computedDiffPct >= 25) discountPercent = 30;
+            else if (computedDiffPct >= 15) discountPercent = 20;
+            else if (computedDiffPct >= 5) discountPercent = 10;
+          }
+
+          if (isNaN(discountedPrice) || discountedPrice <= 0) {
+            discountedPrice = Math.round(originalPrice * (1 - discountPercent / 100));
+          }
+
+          const rawSize = row['Size'] || row['sizeEU'] || '';
+          const stock = Number(row['stock']) || 0;
+          const imageUrl = row['imageUrl'] || '';
+          const categoryInput = (row['Category'] || row['category'] || 'FOOTWEAR').toUpperCase();
+
+          const sizes: any[] = [];
+          if (rawSize.includes('-')) {
+            const [start, end] = rawSize.split('-').map(Number);
+            if (!isNaN(start) && !isNaN(end)) {
+              for (let s = start; s <= end; s++) {
+                sizes.push({ eu: String(s), uk: '', us: '', cm: '', stock });
+              }
+            }
+          } else if (rawSize) {
+            sizes.push({ eu: rawSize, uk: '', us: '', cm: '', stock });
+          }
+
+          if (productMap.has(productCode)) {
+            const existing = productMap.get(productCode)!;
+            if (sizes.length > 0) existing.sizes = [...existing.sizes, ...sizes];
+          } else {
+            productMap.set(productCode, {
+              id: productCode,
+              productCode,
+              fullSkuCode: productCode,
+              brand: modelName.toUpperCase().startsWith('PMA') ? 'Puma' : modelName.toUpperCase().startsWith('AIW') ? 'Airwalk' : 'Diadora',
+              modelName,
+              color: row['color'] || '',
+              category: CATEGORIES.includes(categoryInput) ? (categoryInput as any) : 'FOOTWEAR',
+              imageUrl: imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=150',
+              originalPrice,
+              discountPercent,
+              discountedPrice,
+              sizes,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
         });
-        return obj;
-      });
 
-      // Kirim hasil olahan data ke komponen utama (ImportModal / ProductManagementContent)
-      onImport(parsedData);
-      
-      // Reset input agar bisa upload file yang sama jika dibutuhkan kembali
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    };
+        onImport(Array.from(productMap.values()));
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      };
 
-    reader.readAsText(file, 'UTF-8');
+      reader.readAsText(file, 'UTF-8');
+    }
   };
 
   return (
-    <div className="bg-card rounded-xl border shadow-card p-4 space-y-3">
-      {/* Input File Tersembunyi */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        accept=".csv" 
-        className="hidden" 
-      />
-
-      {/* Top row: search + actions */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+    <div className="bg-white p-4 rounded-xl border space-y-3 shadow-sm">
+      <div className="flex flex-col sm:flex-row gap-2 justify-between items-start sm:items-center">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
           <input
             type="text"
+            placeholder="Cari kode artikel atau model..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Cari brand, model, kode, warna..."
-            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
+            className="w-full text-sm rounded-lg border bg-input text-foreground pl-9 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all"
           />
           {search && (
             <button
               onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
             >
-              <X size={13} className="text-muted-foreground" />
+              ✕
             </button>
           )}
         </div>
 
-        <div className="flex-1" />
-
-        {/* Low stock badge */}
-        {lowStockCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+          
           <button
-            onClick={() => onFilterStock(filterStock === 'low' ? '' : 'low')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-600 transition-all"
-            style={{
-              backgroundColor: filterStock === 'low' ? 'var(--warning)' : 'var(--warning-bg)',
-              color: filterStock === 'low' ? 'white' : 'var(--warning)',
-            }}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 text-xs font-600 px-3 py-1.5 rounded-lg border bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
           >
-            <AlertTriangle size={13} />
-            {lowStockCount} stok rendah
+            <Upload size={14} /> Import CSV
           </button>
-        )}
 
-        {/* Actions */}
-        {totalAll > 0 && (
+          <button
+            onClick={onExport}
+            className="flex items-center gap-1.5 text-xs font-600 px-3 py-1.5 rounded-lg border bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+          >
+            <Download size={14} /> Export CSV
+          </button>
+
           <button
             onClick={onDeleteAll}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-500 text-red-600 bg-red-50 hover:bg-red-100 transition-all active:scale-95"
+            className="flex items-center gap-1.5 text-xs font-600 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-colors"
           >
-            <Trash2 size={15} />
-            <span className="hidden sm:inline">Hapus Semua</span>
+            <Trash2 size={14} /> Kosongkan Data
           </button>
-        )}
 
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-500 text-muted-foreground bg-muted hover:bg-border transition-all active:scale-95"
-        >
-          <Upload size={15} />
-          <span className="hidden sm:inline">Import</span>
-        </button>
-        <button
-          onClick={onExport}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-500 text-muted-foreground bg-muted hover:bg-border transition-all active:scale-95"
-        >
-          <Download size={15} />
-          <span className="hidden sm:inline">Export CSV</span>
-        </button>
-        <button
-          onClick={onAddProduct}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-600 text-white transition-all active:scale-95 shadow-card"
-          style={{ backgroundColor: 'var(--primary)' }}
-        >
-          <Plus size={15} />
-          Tambah Produk
-        </button>
+          <button
+            onClick={onAddProduct}
+            className="flex items-center gap-1 text-xs font-600 bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-all shadow-sm"
+          >
+            <Plus size={14} /> Tambah Manual
+          </button>
+        </div>
       </div>
 
-      {/* Filter row */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
         <select
           value={filterBrand}
           onChange={(e) => onFilterBrand(e.target.value)}
-          className="text-sm rounded-lg border bg-input text-foreground px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all cursor-pointer"
+          className="text-sm rounded-lg border bg-input text-foreground px-3 py-1.5 focus:outline-none cursor-pointer"
         >
           <option value="">Semua Brand</option>
           {BRANDS.map((b) => <option key={`filter-brand-${b}`} value={b}>{b}</option>)}
@@ -238,16 +241,16 @@ export default function ProductToolbar({
         <select
           value={filterDiscount}
           onChange={(e) => onFilterDiscount(e.target.value)}
-          className="text-sm rounded-lg border bg-input text-foreground px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all cursor-pointer"
+          className="text-sm rounded-lg border bg-input text-foreground px-3 py-1.5 focus:outline-none cursor-pointer"
         >
           <option value="">Semua Diskon</option>
-          {DISCOUNTS.map((d) => <option key={`filter-disc-${d}`} value={d}>Diskon {d}%</option>)}
+          {DISCOUNTS.map((d) => <option key={`filter-disc-${d}`} value={d}>{d}%</option>)}
         </select>
 
         <select
           value={filterCategory}
           onChange={(e) => onFilterCategory(e.target.value)}
-          className="text-sm rounded-lg border bg-input text-foreground px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all cursor-pointer"
+          className="text-sm rounded-lg border bg-input text-foreground px-3 py-1.5 focus:outline-none cursor-pointer"
         >
           <option value="">Semua Kategori</option>
           {CATEGORIES.map((c) => <option key={`filter-cat-${c}`} value={c}>{c}</option>)}
@@ -256,7 +259,7 @@ export default function ProductToolbar({
         <select
           value={filterStock}
           onChange={(e) => onFilterStock(e.target.value)}
-          className="text-sm rounded-lg border bg-input text-foreground px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-primary transition-all cursor-pointer"
+          className="text-sm rounded-lg border bg-input text-foreground px-3 py-1.5 focus:outline-none cursor-pointer"
         >
           <option value="">Semua Stok</option>
           {STOCK_FILTERS.map((sf) => <option key={`filter-stock-${sf.value}`} value={sf.value}>{sf.label}</option>)}
@@ -267,13 +270,17 @@ export default function ProductToolbar({
             onClick={onResetFilters}
             className="flex items-center gap-1 text-xs font-500 px-2.5 py-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
           >
-            <RotateCcw size={12} />
-            Reset filter
+            <RotateCcw size={12} /> Reset Filter
           </button>
         )}
 
-        <div className="ml-auto text-xs text-muted-foreground">
-          Menampilkan <span className="font-600 text-foreground">{totalFiltered}</span> dari <span className="font-600 text-foreground">{totalAll}</span> produk
+        <div className="ml-auto flex items-center gap-3 text-2xs text-muted-foreground font-500">
+          {lowStockCount > 0 && (
+            <span className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+              <AlertTriangle size={10} /> {lowStockCount} Kritis
+            </span>
+          )}
+          <span>Menampilkan <strong className="text-foreground">{totalFiltered}</strong> dari {totalAll} produk</span>
         </div>
       </div>
     </div>

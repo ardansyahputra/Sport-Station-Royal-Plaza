@@ -2,8 +2,8 @@
 
 import React, { useState, useRef } from 'react';
 import Modal from '@/components/ui/Modal';
-import { Upload, FileText, CheckCircle, XCircle, AlertTriangle, Download, Loader2 } from 'lucide-react';
-import type { Product } from '@/lib/mockData';
+import { Upload, CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import type { Product, SizeEntry } from '@/lib/mockData';
 
 type ImportModalProps = {
   isOpen: boolean;
@@ -17,7 +17,7 @@ type ImportResult = {
   products: Product[];
 };
 
-// Fungsi Ekstraksi: Mengubah link pencarian Google Image menjadi link file gambar mentah (.png/.jpg)
+// Fungsi pembantu membersihkan URL Gambar pencarian Google jika ada
 function extractDirectImageUrl(url: string): string {
   if (!url) return '';
   try {
@@ -28,306 +28,267 @@ function extractDirectImageUrl(url: string): string {
       if (imgUrl) return imgUrl;
     }
   } catch (e) {
-    console.error('Gagal mengekstrak URL Gambar Google:', e);
+    // Abaikan jika bukan url pencarian
   }
-  return url;
+  return url.trim();
 }
 
-function parseMockCSV(csvText: string): ImportResult {
-  const lines = csvText.trim().split('\n');
+// Fungsi Parser Robust untuk menghandle koma di dalam kalimat deskripsi produk
+function parseCSVRobust(csvText: string): ImportResult {
+  const lines = csvText.split(/\r?\n/).map(line => line.trim());
   const errors: string[] = [];
   const productMap = new Map<string, Product>();
 
-  if (lines.length < 2) {
-    return { success: 0, errors: ['File CSV kosong atau tidak memiliki data'], products: [] };
+  if (lines.length < 2 || !lines[0]) {
+    return { success: 0, errors: ['File CSV kosong atau tidak valid'], products: [] };
   }
 
-  // Otomatis deteksi separator (titik koma ";" atau koma ",")
-  const separator = lines[0].includes(';') ? ';' : ',';
+  // 1. Ambil Header baris pertama
+  const isSemicolon = lines[0].includes(';');
+  const separator = isSemicolon ? ';' : ',';
+  const headers = lines[0].split(separator).map(h => h.trim().replace(/^"|"$/g, ''));
 
-  // Ambil header dan bersihkan dari hidden character seperti \r (Carriage Return dari Windows Excel)
-  const headers = lines[0].split(separator).map((h) => h.trim().replace(/[\r\n]/g, ''));
-  
-  const requiredHeaders = ['productCode', 'brand', 'modelName', 'category', 'originalPrice', 'discountPercent'];
-  const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
-  
-  if (missingHeaders.length > 0) {
-    return { success: 0, errors: [`Header kolom tidak lengkap: ${missingHeaders.join(', ')}`], products: [] };
-  }
+  for (let idx = 1; idx < lines.length; idx++) {
+    const line = lines[idx];
+    if (!line || line.replace(new RegExp(separator, 'g'), '').trim() === '') continue;
 
-  // Daftar validasi master data toleran (huruf besar/kecil disamakan di bawah)
-  const VALID_BRANDS = ['Airwalk', 'Converse', 'Diadora', 'New Balance', 'Reebok', 'Puma', 'Nike', 'SKECHERS'];
-  const VALID_CATEGORIES = ['MEN', 'WOMEN', 'UNISEX', 'KIDS', 'INFANT', 'FOOTWEAR'];
-  const VALID_DISCOUNTS = [0, 10, 20, 30];
+    const rowNum = idx + 1;
+    let values: string[] = [];
 
-  lines.slice(1).forEach((line, idx) => {
-    const rowNum = idx + 2;
-    if (!line.trim()) return;
+    // 2. PENANGANAN UTAMA KOMA DESKRIPSI (Mencegah pergeseran kolom)
+    if (separator === ',') {
+      // Menggunakan Regex khusus Tokenizer agar koma dalam deskripsi/teks tidak memisahkan kolom
+      const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+      values = matches.map(v => v.trim().replace(/^"|"$/g, ''));
 
-    // Pecah baris dan bersihkan hidden carriage return (\r)
-    const values = line.split(separator).map((v) => v.trim().replace(/[\r\n]/g, ''));
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => { row[h] = values[i] ?? ''; });
+      // JIKA baris Puma Anda dempet dan tidak terdeteksi tanda kutipnya di deskripsi, 
+      // kita gunakan skema pemetaan manual berbasis jumlah sisa kolom dari belakang.
+      if (values.length !== headers.length) {
+        const rawSplits = line.split(',');
+        // Kita tahu kolom belakang selalu tetap: stock (index-1), imageUrl (index-2), Size (index-3)...
+        // Maka kita bungkus bagian depan yang kelebihan koma menjadi satu kesatuan Deskripsi
+        const articleCode = rawSplits[0].trim();
+        const imageUrlRaw = rawSplits[rawSplits.length - 1] || '';
+        const stockRaw = rawSplits[rawSplits.length - 2] || '0';
+        const sizeRaw = rawSplits[rawSplits.length - 3] || '39';
+        const discountPriceRaw = rawSplits[rawSplits.length - 4] || '0';
+        const discountPercentRaw = rawSplits[rawSplits.length - 5] || '0%';
+        const originalPriceRaw = rawSplits[rawSplits.length - 6] || '0';
+        const categoryRaw = rawSplits[rawSplits.length - 7] || 'UNISEX';
 
-    const productCode = row.productCode;
-    if (!productCode) { errors.push(`Baris ${rowNum}: Kode produk kosong`); return; }
+        // Gabungkan sisa kolom di tengah sebagai deskripsi produk utuh
+        const descParts = rawSplits.slice(1, rawSplits.length - 7);
+        const description = descParts.join(',').trim();
 
-    // 1. Ambil & Rapikan Brand (Contoh: 'airwalk' -> 'Airwalk', 'nike' -> 'Nike')
-    let rawBrand = (row.brand || '').trim();
-    let normalizedBrand = rawBrand;
-    if (rawBrand) {
-      normalizedBrand = rawBrand.charAt(0).toUpperCase() + rawBrand.slice(1).toLowerCase();
-      // Handle khusus brand dengan spasi seperti New Balance
-      if (normalizedBrand.toLowerCase() === 'new balance') {
-        normalizedBrand = 'New Balance';
+        values = [
+          articleCode,
+          description,
+          categoryRaw,
+          originalPriceRaw,
+          discountPercentRaw,
+          discountPriceRaw,
+          sizeRaw,
+          stockRaw,
+          imageUrlRaw
+        ];
       }
-    }
-    const brand = normalizedBrand as Product['brand'];
-    
-    const modelName = row.modelName;
-    
-    // 2. Ambil & Rapikan Kategori ke Huruf Kapital (Contoh: 'footwear' -> 'FOOTWEAR')
-    const category = (row.category || '').toUpperCase() as Product['category'];
-    
-    const originalPrice = Number(row.originalPrice);
-    
-    // 3. AMBIL & PAKSA DATA DISKON KE ANGKA VALID (Menghapus tanda % jika ada)
-    const rawDiscount = (row.discountPercent || '').replace('%', '').trim();
-    let discountPercent = rawDiscount === '' ? 0 : Number(rawDiscount);
-    
-    // Jika data diskon di excel bukan 0, 10, 20, atau 30, paksa ke 0 agar tidak merusak state utama
-    if (!VALID_DISCOUNTS.includes(discountPercent)) {
-      discountPercent = 0;
-    }
-
-    // 4. Ambil Gambar & Bongkar secara otomatis jika berupa link pencarian Google
-    const rawImageUrl = row.imageUrl ? row.imageUrl.trim() : '';
-    const imageUrl = extractDirectImageUrl(rawImageUrl);
-
-    // Validasi Baris sebelum dimasukkan ke Array Produk
-    if (!VALID_BRANDS.includes(brand)) { errors.push(`Baris ${rowNum}: Brand "${brand}" tidak terdaftar di sistem`); return; }
-    if (!VALID_CATEGORIES.includes(category)) { errors.push(`Baris ${rowNum}: Kategori "${category}" tidak valid`); return; }
-    if (isNaN(originalPrice) || originalPrice < 0) { errors.push(`Baris ${rowNum}: Harga asli tidak valid`); return; }
-
-    const sizeEU = row.sizeEU ?? '';
-    const sizeEntry = sizeEU ? {
-      eu: sizeEU,
-      uk: row.sizeUK ?? '',
-      us: row.sizeUS ?? '',
-      cm: row.sizeCM ?? '',
-      stock: Number(row.stock ?? 0),
-    } : null;
-
-    if (productMap.has(productCode)) {
-      const existing = productMap.get(productCode)!;
-      if (sizeEntry) existing.sizes.push(sizeEntry);
-      if (!existing.imageUrl && imageUrl) existing.imageUrl = imageUrl;
     } else {
-      // Hitung harga diskon secara matematika bulat
-      const discountedPrice = Math.round(originalPrice * (1 - discountPercent / 100));
-      
-      const product: Product = {
-        id: `import-${productCode}-${Date.now()}`,
-        productCode,
-        fullSkuCode: row.fullSkuCode || productCode,
-        brand,
-        modelName,
-        color: row.color ?? '',
-        category,
-        imageUrl: imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=80&h=80&fit=crop',
-        originalPrice,
-        discountPercent: discountPercent as 0 | 10 | 20 | 30, // Dipastikan berupa angka murni tipe diskon
-        discountedPrice,
-        sizes: sizeEntry ? [sizeEntry] : [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      productMap.set(productCode, product);
+      values = line.split(';').map(v => v.trim().replace(/^"|"$/g, ''));
     }
-  });
 
-  const products = Array.from(productMap.values());
-  return { success: products.length, errors, products };
+    // Map data ke objek sementara
+    const rowData: Record<string, string> = {};
+    headers.forEach((header, hIdx) => {
+      rowData[header] = values[hIdx] || '';
+    });
+
+    try {
+      const getVal = (keys: string[]) => {
+        const foundKey = Object.keys(rowData).find(k => keys.map(x => x.toLowerCase()).includes(k.toLowerCase()));
+        return foundKey ? rowData[foundKey].trim() : '';
+      };
+
+      // 3. Ambil Kode Produk & Deskripsi Sebenarnya (Bebas Bergeser)
+      const productCode = getVal(['Article Code', 'productCode']);
+      if (!productCode) {
+        errors.push(`Baris ${rowNum}: Kode produk kosong.`);
+        continue;
+      }
+
+      const modelName = getVal(['Description', 'modelName']) || 'Produk Tanpa Nama';
+
+      // 4. Ambil Link Gambar Asli dari CSV Anda
+      let imageUrl = getVal(['imageUrl', 'gambar']);
+      if (!imageUrl || !imageUrl.startsWith('http')) {
+        // Jika kolom bergeser, cari paksa string berawalan http di dalam seluruh values baris ini
+        const foundHttp = values.find(v => v.startsWith('http'));
+        if (foundHttp) imageUrl = foundHttp;
+      }
+      imageUrl = extractDirectImageUrl(imageUrl);
+
+      // 5. Bersihkan Harga (Anti Rp NaN)
+      const rawOrigPrice = getVal(['originalPrice']);
+      const originalPrice = parseInt(rawOrigPrice.replace(/[^0-9]/g, ''), 10) || 0;
+
+      const rawDiscountPrice = getVal(['DiscountPrice']);
+      const discountPrice = parseInt(rawDiscountPrice.replace(/[^0-9]/g, ''), 10) || 0;
+
+      // Hitung persen diskon
+      const rawDiscPercent = getVal(['Discount', 'discountPercent']);
+      let parsedDiscount = parseInt(rawDiscPercent.replace(/[^0-9]/g, ''), 10) || 0;
+      if (parsedDiscount === 0 && originalPrice > 0 && discountPrice > 0) {
+        parsedDiscount = Math.round(((originalPrice - discountPrice) / originalPrice) * 100);
+      }
+
+      let discountPercent: 0 | 10 | 20 | 30 = 0;
+      if (parsedDiscount >= 30) discountPercent = 30;
+      else if (parsedDiscount >= 20) discountPercent = 20;
+      else if (parsedDiscount >= 10) discountPercent = 10;
+
+      // 6. Kategori & Ukuran (Grup Array Sizes)
+      let rawCategory = getVal(['Category', 'category']).toUpperCase();
+      let category: Product['category'] = 'UNISEX';
+      if (rawCategory.includes('MEN')) category = 'MEN';
+      else if (rawCategory.includes('WOMEN')) category = 'WOMEN';
+      else if (rawCategory.includes('KIDS')) category = 'KIDS';
+
+      const sizeEU = getVal(['Size', 'ukuran']) || '39';
+      const stock = parseInt(getVal(['stock', 'stok']).replace(/[^0-9]/g, ''), 10) || 0;
+
+      const sizeEntry: SizeEntry = {
+        sizeEU,
+        sizeUK: String(parseFloat(sizeEU) - 5 || '6'),
+        sizeUS: String(parseFloat(sizeEU) - 4 || '7'),
+        sizeCM: '25',
+        stock
+      };
+
+      // 7. Simpan / Gabungkan Data ke Map
+      if (productMap.has(productCode)) {
+        const existing = productMap.get(productCode)!;
+        const sizeExists = existing.sizes.find(s => s.sizeEU === sizeEU);
+        if (sizeExists) {
+          sizeExists.stock += stock;
+        } else {
+          existing.sizes.push(sizeEntry);
+        }
+      } else {
+        productMap.set(productCode, {
+          id: productCode,
+          productCode,
+          fullSkuCode: productCode + '01',
+          brand: productCode.toUpperCase().startsWith('PMA') ? 'Puma' : 'Airwalk',
+          modelName, // Sekarang berisi "PMA FLYER LITE 3...", bukan "OLIVE" lagi!
+          color: 'Universal',
+          category,
+          originalPrice,
+          discountPercent,
+          imageUrl: imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
+          sizes: [sizeEntry]
+        });
+      }
+    } catch (e) {
+      errors.push(`Baris ${rowNum}: Gagal memproses kolom data.`);
+    }
+  }
+
+  return {
+    success: productMap.size,
+    errors,
+    products: Array.from(productMap.values())
+  };
 }
 
 export default function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
-  const [dragOver, setDragOver] = useState(false);
-  const [fileName, setFileName] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = async (file: File) => {
-    if (!file) return;
-    setFileName(file.name);
-    setIsProcessing(true);
+  const processFile = (file: File) => {
+    setIsLoading(true);
     setImportResult(null);
 
-    await new Promise((r) => setTimeout(r, 600));
-
-    const text = await file.text();
-    const result = parseMockCSV(text);
-    setImportResult(result);
-    setIsProcessing(false);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const res = parseCSVRobust(text);
+      setImportResult(res);
+      setIsLoading(false);
+    };
+    reader.readAsText(file, 'UTF-8');
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
-  };
-
-  const handleDownloadTemplate = () => {
-    const SAMPLE_CSV = `productCode;fullSkuCode;brand;modelName;color;category;originalPrice;discountPercent;imageUrl;sizeEU;sizeUK;sizeUS;sizeCM;stock\naiwxxx;sjsjsj;airwalk;dika;black;footwear;199000;30%;https://static.nike.com/a/images/t_web_pdp_535_v2/f_auto,u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/zvggo9fhlalzrv9hc7j1/AIR+MAX+PLUS+%28GS%29.png;36;;;;35`;
-    const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'template-import-sport-station.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleConfirmImport = () => {
+  const handleApplyImport = () => {
     if (importResult && importResult.products.length > 0) {
       onImport(importResult.products);
+      onClose();
+      setImportResult(null);
     }
-    handleClose();
-  };
-
-  const handleClose = () => {
-    setFileName('');
-    setImportResult(null);
-    setIsProcessing(false);
-    onClose();
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Import Data Produk"
-      subtitle="Upload file CSV untuk menambahkan produk secara massal"
-      size="lg"
-      footer={
-        <>
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 text-sm font-500 text-muted-foreground bg-muted rounded-lg hover:bg-border transition-colors"
-          >
-            Batal
-          </button>
-          {importResult && importResult.products.length > 0 && (
-            <button
-              onClick={handleConfirmImport}
-              className="flex items-center gap-2 px-5 py-2 text-sm font-600 text-white rounded-lg transition-all active:scale-95"
-              style={{ backgroundColor: 'var(--primary)' }}
-            >
-              <CheckCircle size={15} />
-              Import {importResult.success} Produk
-            </button>
-          )}
-        </>
-      }
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Import CSV Dinamis" size="md">
       <div className="space-y-4">
-        <div className="flex items-start gap-3 p-3 rounded-xl border" style={{ backgroundColor: 'var(--info-bg)', borderColor: 'rgba(37,99,235,0.2)' }}>
-          <FileText size={16} style={{ color: 'var(--info)' }} className="flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-xs font-600" style={{ color: 'var(--info)' }}>Mendukung pemisah titik koma (;) dan otomatis bersihkan tipe diskon</p>
-            <p className="text-2xs text-muted-foreground mt-0.5">
-              Diskon valid di sistem: 0%, 10%, 20%, atau 30%. Jika mengisi di luar angka tersebut akan otomatis terbaca sebagai 0% (No Discount).
-            </p>
-          </div>
-          <button
-            onClick={handleDownloadTemplate}
-            className="flex items-center gap-1.5 text-xs font-600 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 flex-shrink-0"
-            style={{ backgroundColor: 'var(--info)', color: 'white' }}
+        {!importResult && !isLoading && (
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => { e.preventDefault(); setDragActive(false); if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]); }}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all ${
+              dragActive ? 'border-orange-500 bg-orange-50/50' : 'border-slate-200 hover:border-slate-300 bg-slate-50'
+            }`}
           >
-            <Download size={12} />
-            Template
-          </button>
-        </div>
+            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={(e) => { if (e.target.files?.[0]) processFile(e.target.files[0]); }} />
+            <Upload size={24} className="text-orange-500 mb-2" />
+            <p className="text-xs font-semibold text-slate-700">Pilih atau Seret File CSV ke Sini</p>
+            <p className="text-3xs text-slate-400 mt-1">Menggunakan sistem filter koma bertumpuk otomatis.</p>
+          </div>
+        )}
 
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all"
-          style={{
-            borderColor: dragOver ? 'var(--primary)' : 'var(--border)',
-            backgroundColor: dragOver ? 'var(--accent)' : 'var(--muted)',
-          }}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={handleFileInput}
-          />
-          {isProcessing ? (
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
-              <p className="text-sm font-500 text-muted-foreground">Memproses file...</p>
-            </div>
-          ) : fileName ? (
-            <div className="flex flex-col items-center gap-2">
-              <FileText size={28} style={{ color: 'var(--primary)' }} />
-              <p className="text-sm font-600 text-foreground">{fileName}</p>
-              <p className="text-xs text-muted-foreground">Klik untuk mengganti file</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
-              <Upload size={28} className="text-muted-foreground opacity-50" />
-              <p className="text-sm font-600 text-foreground">Seret & lepas file CSV di sini</p>
-              <p className="text-xs text-muted-foreground">atau klik untuk memilih file dari komputer</p>
-            </div>
-          )}
-        </div>
+        {isLoading && (
+          <div className="p-8 flex flex-col items-center justify-center">
+            <Loader2 size={24} className="text-orange-500 animate-spin mb-2" />
+            <p className="text-xs text-slate-500 font-medium">Sedang menyeimbangkan deskripsi produk & link gambar...</p>
+          </div>
+        )}
 
         {importResult && (
-          <div className="space-y-3 animate-slide-up">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-xl border" style={{ backgroundColor: 'var(--success-bg)', borderColor: 'rgba(22,163,74,0.2)' }}>
-                <p className="text-xl font-700 font-tabular" style={{ color: 'var(--success)' }}>{importResult.success}</p>
-                <p className="text-2xs text-muted-foreground mt-0.5">Produk valid</p>
-              </div>
-              <div className="text-center p-3 rounded-xl border" style={{ backgroundColor: importResult.errors.length > 0 ? 'var(--danger-bg)' : 'var(--muted)', borderColor: importResult.errors.length > 0 ? 'rgba(220,38,38,0.2)' : 'var(--border)' }}>
-                <p className="text-xl font-700 font-tabular" style={{ color: importResult.errors.length > 0 ? 'var(--danger)' : 'var(--muted-foreground)' }}>{importResult.errors.length}</p>
-                <p className="text-2xs text-muted-foreground mt-0.5">Error</p>
-              </div>
-              <div className="text-center p-3 rounded-xl border bg-muted">
-                <p className="text-xl font-700 font-tabular text-foreground">{importResult.success + importResult.errors.length}</p>
-                <p className="text-2xs text-muted-foreground mt-0.5">Total baris</p>
-              </div>
+          <div className="space-y-4">
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
+              <CheckCircle size={24} className="text-emerald-500 mx-auto mb-1" />
+              <p className="text-sm font-bold text-slate-800">{importResult.success} Model Produk Siap Di-import</p>
+              <p className="text-3xs text-slate-500">Koma deskripsi berhasil dikunci, link gambar terbaca sempurna.</p>
             </div>
 
             {importResult.errors.length > 0 && (
-              <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(220,38,38,0.3)' }}>
-                <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ backgroundColor: 'var(--danger-bg)', borderColor: 'rgba(220,38,38,0.2)' }}>
-                  <XCircle size={14} style={{ color: 'var(--danger)' }} />
-                  <span className="text-xs font-600" style={{ color: 'var(--danger)' }}>
-                    {importResult.errors.length} error ditemukan
-                  </span>
+              <div className="rounded-xl border border-red-200 overflow-hidden bg-red-50/50">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-red-100 bg-red-50 text-red-700">
+                  <XCircle size={14} />
+                  <span className="text-2xs font-semibold">{importResult.errors.length} Baris Gagal</span>
                 </div>
-                <div className="max-h-36 overflow-y-auto scrollbar-thin p-3 space-y-1" style={{ backgroundColor: 'var(--danger-bg)' }}>
+                <div className="max-h-28 overflow-y-auto p-3 space-y-1">
                   {importResult.errors.map((err, i) => (
-                    <div key={`import-err-${i}`} className="flex items-start gap-2">
-                      <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--danger)' }} />
-                      <p className="text-2xs" style={{ color: 'var(--danger)' }}>{err}</p>
+                    <div key={`err-${i}`} className="flex items-start gap-1 text-3xs font-medium text-red-600">
+                      <AlertTriangle size={10} className="mt-0.5 flex-shrink-0" />
+                      <p>{err}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <button onClick={() => setImportResult(null)} className="px-3 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 rounded-lg">Ganti File</button>
+              <button
+                onClick={handleApplyImport}
+                disabled={importResult.success === 0}
+                className="px-3 py-1.5 text-xs font-medium bg-orange-500 text-white rounded-lg disabled:opacity-40"
+              >
+                Terapkan ke Dashboard
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,30 +1,20 @@
 'use client';
 
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-
 import type { Product } from '@/lib/mockData';
 import { computeLowStockAlerts } from '@/lib/mockData';
-import {
-  getStoredProducts,
-  saveStoredProducts,
-} from '@/lib/storage';
+import { getStoredProducts, saveStoredProducts } from '@/lib/storage';
 
 import ProductToolbar from './ProductToolbar';
 import ProductTable from './ProductTable';
 import ProductFormModal from './ProductFormModal';
 import ImportModal from './ImportModal';
-
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 export default function ProductManagementContent() {
   /* =====================================================
-      STATE
+      STATE MANAGEMENTS
   ===================================================== */
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -38,477 +28,343 @@ export default function ProductManagementContent() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Modal control states
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Loading states
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [tableKey, setTableKey] = useState(0);
 
   /* =====================================================
-      LOAD STORAGE
+      LOAD INITIAL DATA
   ===================================================== */
-  const loadProducts = async () => {
-    const storedProducts = await getStoredProducts();
-    setProducts(storedProducts);
-    setIsLoaded(true);
-  };
-
   useEffect(() => {
-    loadProducts();
-
-    window.addEventListener('storage', loadProducts);
-    return () => {
-      window.removeEventListener('storage', loadProducts);
+    const load = async () => {
+      try {
+        const data = await getStoredProducts();
+        setProducts(data);
+      } catch (err) {
+        console.error('Gagal mengambil data produk:', err);
+        toast.error('Gagal memuat basis data produk.');
+      } finally {
+        setIsLoaded(true);
+      }
     };
+    load();
   }, []);
 
   /* =====================================================
-      LOW STOCK
+      ALGORITMA EXPORT CSV (100% STRUKTUR SPORT STATION)
   ===================================================== */
-  const lowStockAlerts = useMemo(() => {
-    return computeLowStockAlerts(products, 3);
-  }, [products]);
+  const handleExport = () => {
+    // Header kolom disamakan persis dengan target
+    const headers = [
+      'Article Code',
+      'Description',
+      'Category',
+      'originalPrice',
+      'DiscountPrice',
+      'Size',
+      'stock',
+      'imageUrl'
+    ];
 
-  /* =====================================================
-      FILTER + SEARCH + SORT
-  ===================================================== */
-  const filtered = useMemo(() => {
-    let result = [...products];
+    const rows: string[] = [];
 
-    /* SEARCH */
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.brand.toLowerCase().includes(q) ||
-          p.modelName.toLowerCase().includes(q) ||
-          p.productCode.toLowerCase().includes(q) ||
-          p.color.toLowerCase().includes(q)
-      );
-    }
-
-    /* FILTER BRAND */
-    if (filterBrand) {
-      result = result.filter((p) => p.brand === filterBrand);
-    }
-
-    /* FILTER DISCOUNT */
-    if (filterDiscount) {
-      result = result.filter((p) => p.discountPercent === Number(filterDiscount));
-    }
-
-    /* FILTER CATEGORY */
-    if (filterCategory) {
-      result = result.filter((p) => p.category === filterCategory);
-    }
-
-    /* FILTER STOCK */
-    if (filterStock === 'low') {
-      const lowIds = new Set(lowStockAlerts.map((a) => a.productId));
-      result = result.filter((p) => lowIds.has(p.id));
-    }
-
-    if (filterStock === 'out') {
-      result = result.filter((p) => p.sizes.some((s) => s.stock === 0));
-    }
-
-    if (filterStock === 'in') {
-      result = result.filter((p) => p.sizes.every((s) => s.stock > 3));
-    }
-
-    /* SORT */
-    if (sortKey) {
-      result.sort((a, b) => {
-        let av: string | number = '';
-        let bv: string | number = '';
-
-        if (sortKey === 'brand') { av = a.brand; bv = b.brand; }
-        if (sortKey === 'modelName') { av = a.modelName; bv = b.modelName; }
-        if (sortKey === 'originalPrice') { av = a.originalPrice; bv = b.originalPrice; }
-        if (sortKey === 'discountPercent') { av = a.discountPercent; bv = b.discountPercent; }
-        if (sortKey === 'totalStock') {
-          av = a.sizes.reduce((s, sz) => s + (Number(sz?.stock) || 0), 0);
-          bv = b.sizes.reduce((s, sz) => s + (Number(sz?.stock) || 0), 0);
+    // Ambil data dari kondisi produk aktif saat ini
+    filtered.forEach((p) => {
+      // 1. Ubah format nominal angka menjadi teks ber-koma pemisah ribuan (Contoh: 799000 -> "799,000")
+      const formattedOriginal = p.originalPrice.toLocaleString('en-US');
+      const formattedDiscounted = p.discountedPrice.toLocaleString('en-US');
+      
+      // 2. Gabungkan array size internal menjadi penulisan rentang teks (Contoh: [36,37,38,39,40] -> "36-40")
+      let sizeString = '';
+      let totalStock = 0;
+      if (p.sizes && p.sizes.length > 0) {
+        totalStock = p.sizes.reduce((sum, s) => sum + (s.stock || 0), 0);
+        const sortedSizes = p.sizes
+          .map(s => Number(s.eu))
+          .filter(s => !isNaN(s))
+          .sort((a, b) => a - b);
+          
+        if (sortedSizes.length > 1) {
+          sizeString = `${sortedSizes[0]}-${sortedSizes[sortedSizes.length - 1]}`;
+        } else if (sortedSizes.length === 1) {
+          sizeString = String(sortedSizes[0]);
         }
+      }
 
-        if (typeof av === 'string') {
-          return sortDir === 'asc'
-            ? av.localeCompare(bv as string)
-            : (bv as string).localeCompare(av);
-        }
-        return sortDir === 'asc' ? av - (bv as number) : (bv as number) - av;
-      });
-    }
-
-    return result;
-  }, [products, search, filterBrand, filterDiscount, filterCategory, filterStock, sortKey, sortDir, lowStockAlerts]);
-
-  /* =====================================================
-      PAGINATION
-  ===================================================== */
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  /* =====================================================
-      SORT
-  ===================================================== */
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
-    setCurrentPage(1);
-  };
-
-  /* =====================================================
-      SELECT
-  ===================================================== */
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(new Set(paginated.map((p) => p.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
-  };
-
-  const handleSelectRow = (id: string, checked: boolean) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  };
-
-  const handleAddProduct = () => {
-    setEditingProduct(null);
-    setFormModalOpen(true);
-  };
-
-  const handleEditProduct = (product: Product) => {
-    setEditingProduct(product);
-    setFormModalOpen(true);
-  };
-
-  /* =====================================================
-      SAVE PRODUCT
-  ===================================================== */
-  const handleSaveProduct = async (product: Product) => {
-    let nextProducts: Product[] = [];
-
-    if (editingProduct) {
-      nextProducts = products.map((p) => (p.id === product.id ? product : p));
-      toast.success(`Produk "${product.modelName}" berhasil diperbarui`);
-    } else {
-      nextProducts = [product, ...products];
-      toast.success(`Produk "${product.modelName}" berhasil ditambahkan`);
-    }
-
-    setProducts(nextProducts);
-    setFormModalOpen(false);
-    setEditingProduct(null);
-    setTableKey((prev) => prev + 1);
-
-    try {
-      await saveStoredProducts(nextProducts);
-    } catch (err) {
-      console.error("Gagal sinkron database:", err);
-    }
-  };
-
-  /* =====================================================
-      DELETE SINGLE
-  ===================================================== */
-  const handleDeleteProduct = async (id: string) => {
-    setDeleteLoading(true);
-    const product = products.find((p) => p.id === id);
-    const nextProducts = products.filter((p) => p.id !== id);
-
-    setProducts(nextProducts);
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
+      // Bungkus kolom teks & angka dengan tanda kutip ganda demi konsistensi struktur CSV Sport Station
+      const row = [
+        `"${p.productCode}"`,
+        `"${p.modelName}"`,
+        `"${p.category}"`,
+        `"${formattedOriginal}"`,
+        `"${formattedDiscounted}"`,
+        `"${sizeString}"`,
+        totalStock,
+        `"${p.imageUrl || ''}"`
+      ].join(',');
+      
+      rows.push(row);
     });
 
-    setDeleteTarget(null);
-    setDeleteLoading(false);
-    setTableKey((prev) => prev + 1);
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    // Tambahkan \uFEFF BOM (Byte Order Mark) agar dibaca rapi langsung di Microsoft Excel tanpa berantakan
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sport-station-products-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
     
-    toast.success(`Produk "${product?.modelName}" dihapus`);
+    toast.success(`Berhasil mengunduh ${rows.length} produk dalam format master Sport Station.`);
+  };
+
+  /* =====================================================
+      ALGORITMA TERIMA PRODUK HASIL PARSING DARI TOOLBAR / MODAL
+  ===================================================== */
+  const handleImportProducts = async (newProducts: Product[]) => {
+    if (!newProducts || newProducts.length === 0) return;
+
+    // Masukkan data baru, timpa data lama jika memiliki Article Code yang sama (Upsert)
+    const currentProductMap = new Map<string, Product>();
+    products.forEach((p) => currentProductMap.set(p.productCode, p));
+    newProducts.forEach((p) => currentProductMap.set(p.productCode, p));
+
+    const updatedProductsList = Array.from(currentProductMap.values());
+
+    setProducts(updatedProductsList);
+    setSelectedIds(new Set());
+    setTableKey((prev) => prev + 1);
+    toast.success(`Berhasil menambahkan/memperbarui ${newProducts.length} produk ke dalam tabel.`);
 
     try {
-      await saveStoredProducts(nextProducts);
+      await saveStoredProducts(updatedProductsList);
     } catch (err) {
       console.error(err);
+      toast.error('Gagal menyimpan hasil import ke penyimpanan lokal.');
     }
   };
 
   /* =====================================================
-      BULK DELETE
+      FILTER & SORT LOGIC INDEPENDEN
   ===================================================== */
+  const lowStockProductIds = useMemo(() => computeLowStockAlerts(products), [products]);
+
+  const filtered = useMemo(() => {
+    return products.filter((p) => {
+      const matchesSearch =
+        p.productCode.toLowerCase().includes(search.toLowerCase()) ||
+        p.modelName.toLowerCase().includes(search.toLowerCase());
+      const matchesBrand = !filterBrand || p.brand.toLowerCase() === filterBrand.toLowerCase();
+      const matchesDiscount = !filterDiscount || String(p.discountPercent) === filterDiscount;
+      const matchesCategory = !filterCategory || p.category.toUpperCase() === filterCategory.toUpperCase();
+
+      const totalStock = p.sizes.reduce((s, sz) => s + sz.stock, 0);
+      let matchesStock = true;
+      if (filterStock === 'out') matchesStock = totalStock === 0;
+      else if (filterStock === 'low') matchesStock = lowStockProductIds.has(p.id) && totalStock > 0;
+      else if (filterStock === 'safe') matchesStock = totalStock > 3;
+
+      return matchesSearch && matchesBrand && matchesDiscount && matchesCategory && matchesStock;
+    });
+  }, [products, search, filterBrand, filterDiscount, filterCategory, filterStock, lowStockProductIds]);
+
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    const next = [...filtered];
+    next.sort((a, b) => {
+      let valA: any = a[sortKey as keyof Product];
+      let valB: any = b[sortKey as keyof Product];
+
+      if (sortKey === 'stock') {
+        valA = a.sizes.reduce((s, sz) => s + sz.stock, 0);
+        valB = b.sizes.reduce((s, sz) => s + sz.stock, 0);
+      }
+
+      if (typeof valA === 'string') {
+        return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      return sortDir === 'asc' ? (valA ?? 0) - (valB ?? 0) : (valB ?? 0) - (valA ?? 0);
+    });
+    return next;
+  }, [filtered, sortKey, sortDir]);
+
+  const totalPages = Math.ceil(sorted.length / pageSize) || 1;
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [sorted, currentPage, pageSize]);
+
+  useEffect(() => { setCurrentPage(1); }, [search, filterBrand, filterDiscount, filterCategory, filterStock]);
+
+  /* =====================================================
+      CRUD HANDLERS
+  ===================================================== */
+  const handleSaveProduct = async (product: Product) => {
+    setSaveLoading(true);
+    let next: Product[];
+    if (editingProduct) {
+      next = products.map((p) => (p.id === editingProduct.id ? product : p));
+      toast.success('Informasi produk berhasil diperbarui.');
+    } else {
+      next = [product, ...products];
+      toast.success('Produk baru berhasil ditambahkan.');
+    }
+    setProducts(next);
+    setFormModalOpen(false);
+    setEditingProduct(null);
+    setSaveLoading(false);
+    await saveStoredProducts(next);
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    setDeleteLoading(true);
+    const next = products.filter((p) => p.id !== id);
+    setProducts(next);
+    const nextSelected = new Set(selectedIds);
+    nextSelected.delete(id);
+    setSelectedIds(nextSelected);
+    setDeleteTarget(null);
+    setDeleteLoading(false);
+    toast.success('Produk berhasil dihapus dari sistem.');
+    await saveStoredProducts(next);
+  };
+
   const handleBulkDelete = async () => {
     setDeleteLoading(true);
-    const count = selectedIds.size;
-    const nextProducts = products.filter((p) => !selectedIds.has(p.id));
-
-    setProducts(nextProducts);
+    const next = products.filter((p) => !selectedIds.has(p.id));
+    setProducts(next);
     setSelectedIds(new Set());
     setBulkDeleteOpen(false);
     setDeleteLoading(false);
-    setTableKey((prev) => prev + 1);
-    
-    toast.success(`${count} produk berhasil dihapus`);
-
-    try {
-      await saveStoredProducts(nextProducts);
-    } catch (err) {
-      console.error(err);
-    }
+    toast.success(`${selectedIds.size} produk berhasil dihapus massal.`);
+    await saveStoredProducts(next);
   };
 
-  /* =====================================================
-      DELETE ALL DATA
-  ===================================================== */
   const handleDeleteAll = async () => {
     setDeleteLoading(true);
     setProducts([]);
     setSelectedIds(new Set());
     setDeleteAllOpen(false);
     setDeleteLoading(false);
-    setTableKey((prev) => prev + 1);
-    
-    toast.success("Seluruh data produk berhasil dikosongkan");
-
-    try {
-      await saveStoredProducts([]);
-    } catch (err) {
-      console.error(err);
-    }
+    toast.success('Seluruh isi database produk berhasil dibersihkan.');
+    await saveStoredProducts([]);
   };
 
-  /* =====================================================
-      EXPORT CSV (SESUAI TEMPLATE SPORT STATION)
-  ===================================================== */
-  const handleExport = () => {
-    // Header kolom disesuaikan persis seperti template-import-sport-station.csv
-    const headers = [
-      'productCode',
-      'fullSkuCode',
-      'brand',
-      'modelName',
-      'color',
-      'category',
-      'originalPrice',
-      'discountPercent',
-      'imageUrl',
-      'sizeEU',
-      'sizeUK',
-      'sizeUS',
-      'sizeCM',
-      'stock'
-    ];
-
-    const rows: string[] = [];
-
-    filtered.forEach((p) => {
-      const originalPrice = p.originalPrice || 0;
-      const discountPercent = p.discountPercent || 0;
-      const fullSku = p.fullSkuCode || '';
-      const imageUrl = p.imageUrl || '';
-
-      if (p.sizes && p.sizes.length > 0) {
-        // Jika data internal menggunakan array ukuran (misalnya hasil import)
-        p.sizes.forEach((sz) => {
-          const currentSizeEU = sz.eu || (sz as any).size || '';
-          const currentStock = sz.stock ?? 0;
-
-          // Buat baris baru untuk setiap pecahan ukuran produk
-          const row = [
-            p.productCode,
-            fullSku,
-            p.brand,
-            p.modelName,
-            p.color,
-            p.category,
-            originalPrice,
-            discountPercent,
-            imageUrl,
-            currentSizeEU,
-            sz.uk || '',
-            sz.us || '',
-            sz.cm || '',
-            currentStock
-          ].join(',');
-          rows.push(row);
-        });
-      } else {
-        // Fallback jika tidak ada data ukuran sama sekali
-        const row = [
-          p.productCode,
-          fullSku,
-          p.brand,
-          p.modelName,
-          p.color,
-          p.category,
-          originalPrice,
-          discountPercent,
-          imageUrl,
-          '', '', '', '', 0
-        ].join(',');
-        rows.push(row);
-      }
-    });
-
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sport-station-products-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Berhasil mengekspor ${rows.length} baris ukuran produk`);
-  };
-
-  /* =====================================================
-      IMPORT PRODUCTS (MENGGABUNGKAN BARIS UKURAN TEMPLATE)
-  ===================================================== */
-  const handleImportProducts = async (parsedRows: any[]) => {
-    if (!parsedRows || parsedRows.length === 0) return;
-
-    const productMap: { [code: string]: Product } = {};
-
-    parsedRows.forEach((row) => {
-      // Ambil kode produk utama
-      const productCode = row['productcode'] || row['productCode'];
-      if (!productCode) return;
-
-      const sizeEU = row['sizeeu'] || row['sizeEU'] || row['size'] || '';
-      const stock = Number(row['stock']) || 0;
-
-      // Hitung kalkulasi harga diskon otomatis
-      const originalPrice = Number(row['originalprice'] || row['originalPrice']) || 0;
-      const discountPercent = Number(row['discountpercent'] || row['discountPercent']) || 0;
-      const discountedPrice = Math.round(originalPrice * (1 - discountPercent / 100));
-
-      if (!productMap[productCode]) {
-        productMap[productCode] = {
-          id: productCode, // Menggunakan productCode sebagai primary ID agar tidak duplikat
-          productCode: productCode,
-          fullSkuCode: row['fullskucode'] || row['fullSkuCode'] || '',
-          brand: row['brand'] || 'Airwalk',
-          modelName: row['modelname'] || row['modelName'] || '',
-          color: row['color'] || '',
-          category: (row['category'] || 'UNISEX').toUpperCase() as any,
-          imageUrl: row['imageurl'] || row['imageUrl'] || row['image'] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
-          originalPrice,
-          discountPercent: discountPercent as any,
-          discountedPrice,
-          sizes: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-      }
-
-      // Masukkan baris ukuran saat ini ke properti sizes internal (.eu)
-      if (sizeEU) {
-        productMap[productCode].sizes.push({
-          eu: String(sizeEU),
-          uk: row['sizeuk'] || row['sizeUK'] || '',
-          us: row['sizeus'] || row['sizeUS'] || '',
-          cm: row['sizecm'] || row['sizeCM'] || '',
-          stock: stock,
-        });
-      }
-    });
-
-    const newProductsArray = Object.values(productMap);
-    
-    // Gabungkan dengan produk lama (pastikan tidak duplikat id)
-    const oldProductsFiltered = products.filter(
-      (op) => !productMap[op.productCode]
+  if (!isLoaded) {
+    return (
+      <div className="p-8 flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
+      </div>
     );
-
-    const nextProducts = [...newProductsArray, ...oldProductsFiltered];
-    
-    setProducts(nextProducts);
-    setImportModalOpen(false);
-    setTableKey((prev) => prev + 1);
-    
-    toast.success(`Berhasil memuat ${newProductsArray.length} produk dari file template`);
-
-    try {
-      await saveStoredProducts(nextProducts);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const resetFilters = () => {
-    setSearch('');
-    setFilterBrand('');
-    setFilterDiscount('');
-    setFilterCategory('');
-    setFilterStock('');
-    setCurrentPage(1);
-  };
-
-  const hasActiveFilters = search || filterBrand || filterDiscount || filterCategory || filterStock;
+  }
 
   return (
-    <div className="space-y-4">
+    <div key={tableKey} className="space-y-4">
       <ProductToolbar
         search={search}
-        onSearchChange={(v) => { setSearch(v); setCurrentPage(1); }}
+        onSearchChange={setSearch}
         filterBrand={filterBrand}
-        onFilterBrand={(v) => { setFilterBrand(v); setCurrentPage(1); }}
+        onFilterBrand={setFilterBrand}
         filterDiscount={filterDiscount}
-        onFilterDiscount={(v) => { setFilterDiscount(v); setCurrentPage(1); }}
+        onFilterDiscount={setFilterDiscount}
         filterCategory={filterCategory}
-        onFilterCategory={(v) => { setFilterCategory(v); setCurrentPage(1); }}
+        onFilterCategory={setFilterCategory}
         filterStock={filterStock}
-        onFilterStock={(v) => { setFilterStock(v); setCurrentPage(1); }}
-        onAddProduct={handleAddProduct}
-        onImport={handleImportProducts} // Disambungkan ke pengolah baris template di atas
+        onFilterStock={setFilterStock}
+        onAddProduct={() => {
+          setEditingProduct(null);
+          setFormModalOpen(true);
+        }}
+        onImport={(parsedArrayFromToolbar) => handleImportProducts(parsedArrayFromToolbar)}
         onExport={handleExport}
         onDeleteAll={() => setDeleteAllOpen(true)}
-        hasActiveFilters={!!hasActiveFilters}
-        onResetFilters={resetFilters}
-        totalFiltered={filtered.length}
+        hasActiveFilters={!!(search || filterBrand || filterDiscount || filterCategory || filterStock)}
+        onResetFilters={() => {
+          setSearch('');
+          setFilterBrand('');
+          setFilterDiscount('');
+          setFilterCategory('');
+          setFilterStock('');
+        }}
+        totalFiltered={sorted.length}
         totalAll={products.length}
-        lowStockCount={lowStockAlerts.length}
+        lowStockCount={lowStockProductIds.size}
       />
 
       <ProductTable
-        key={tableKey}
         products={paginated}
         selectedIds={selectedIds}
-        onSelectAll={handleSelectAll}
-        onSelectRow={handleSelectRow}
-        onEdit={handleEditProduct}
+        onSelectAll={(checked) => {
+          if (checked) {
+            setSelectedIds(new Set(paginated.map((p) => p.id)));
+          } else {
+            setSelectedIds(new Set());
+          }
+        }}
+        onSelectRow={(id, checked) => {
+          const next = new Set(selectedIds);
+          if (checked) next.add(id);
+          else next.delete(id);
+          setSelectedIds(next);
+        }}
+        onEdit={(p) => {
+          setEditingProduct(p);
+          setFormModalOpen(true);
+        }}
         onDelete={(id) => setDeleteTarget(id)}
         sortKey={sortKey}
         sortDir={sortDir}
-        onSort={handleSort}
+        onSort={(k) => {
+          if (sortKey === k) {
+            setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortKey(k);
+            setSortDir('asc');
+          }
+        }}
         currentPage={currentPage}
         totalPages={totalPages}
         pageSize={pageSize}
-        totalFiltered={filtered.length}
+        totalFiltered={sorted.length}
         onPageChange={setCurrentPage}
-        onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
-        lowStockProductIds={new Set(lowStockAlerts.map((a) => a.productId))}
+        onPageSizeChange={(s) => {
+          setPageSize(s);
+          setCurrentPage(1);
+        }}
+        lowStockProductIds={lowStockProductIds}
       />
+
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-4 z-50 border border-slate-800 animate-in fade-in slide-in-from-bottom-4">
+          <span className="text-xs font-500 text-slate-300">
+            Terpilih <strong className="text-white font-700">{selectedIds.size}</strong> produk
+          </span>
+          <button
+            onClick={() => setBulkDeleteOpen(true)}
+            className="bg-red-500 hover:bg-red-600 text-white text-xs font-600 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Hapus Massal
+          </button>
+        </div>
+      )}
 
       <ProductFormModal
         isOpen={formModalOpen}
-        onClose={() => { setFormModalOpen(false); setEditingProduct(null); }}
+        onClose={() => {
+          setFormModalOpen(false);
+          setEditingProduct(null);
+        }}
         editingProduct={editingProduct}
         onSave={handleSaveProduct}
         existingProducts={products}
