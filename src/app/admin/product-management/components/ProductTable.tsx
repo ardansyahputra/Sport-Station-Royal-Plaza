@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import AppImage from '@/components/ui/AppImage';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Edit2, Trash2, Eye, AlertTriangle, ChevronLeft, ChevronRight, Package } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Edit2, Trash2, Eye, ChevronLeft, ChevronRight, Package } from 'lucide-react';
 import type { Product } from '@/lib/mockData';
 import { formatIDR } from '@/lib/mockData';
 import ProductDetailModal from './ProductDetailModal';
@@ -31,39 +31,31 @@ const BRAND_COLORS: Record<string, string> = {
   Converse: '#DC2626',
   Diadora: '#059669',
   'New Balance': '#7C3AED',
-  Reebok: '#D97706',
-  SKECHERS: '#0284c7',
-  Nike: '#ea580c',
-  Puma: '#1e293b'
+  Reebok: '#0F172A',
+  Puma: '#EA580C',
+  Nike: '#E11D48',
+  SKECHERS: '#2563EB',
 };
-
-const CATEGORY_LABELS: Record<string, string> = {
-  MEN: 'Pria',
-  WOMEN: 'Wanita',
-  UNISEX: 'Unisex',
-  KIDS: 'Anak',
-  INFANT: 'Bayi',
-};
-
-function SortIcon({ colKey, sortKey, sortDir }: { colKey: string; sortKey: string; sortDir: 'asc' | 'desc' }) {
-  if (sortKey !== colKey) return <ChevronsUpDown size={13} className="text-muted-foreground opacity-40" />;
-  return sortDir === 'asc'
-    ? <ChevronUp size={13} style={{ color: 'var(--primary)' }} />
-    : <ChevronDown size={13} style={{ color: 'var(--primary)' }} />;
-}
-
-const PAGE_SIZES = [5, 10, 20, 50];
 
 export default function ProductTable({
-  products, selectedIds, onSelectAll, onSelectRow,
-  onEdit, onDelete, sortKey, sortDir, onSort,
-  currentPage, totalPages, pageSize, totalFiltered,
-  onPageChange, onPageSizeChange, lowStockProductIds,
+  products,
+  selectedIds,
+  onSelectAll,
+  onSelectRow,
+  onEdit,
+  onDelete,
+  sortKey,
+  sortDir,
+  onSort,
+  currentPage,
+  totalPages,
+  pageSize,
+  totalFiltered,
+  onPageChange,
+  onPageSizeChange,
+  lowStockProductIds,
 }: ProductTableProps) {
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
-
-  // 1. Log untuk melihat seluruh list produk yang masuk ke komponen
-  console.log('--- DATA PRODUCTS DI DALAM TABLE ---', products);
 
   const allSelected = products.length > 0 && products.every((p) => selectedIds.has(p.id));
   const someSelected = products.some((p) => selectedIds.has(p.id)) && !allSelected;
@@ -87,6 +79,11 @@ export default function ProductTable({
     return pages;
   };
 
+  const renderSortIcon = (key: string) => {
+    if (sortKey !== key) return <ChevronsUpDown size={12} className="opacity-40" />;
+    return sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
+  };
+
   if (products.length === 0 && totalFiltered === 0) {
     return (
       <div className="bg-card rounded-xl border shadow-card">
@@ -105,111 +102,71 @@ export default function ProductTable({
     <>
       <div className="bg-card rounded-xl border shadow-card overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-sm" style={{ minWidth: '1000px' }}>
+          <table className="w-full text-sm" style={{ minWidth: '1250px' }}>
             <thead>
               <tr className="border-b" style={{ backgroundColor: 'var(--muted)' }}>
-                <th className="px-4 py-3 w-10">
+                <th className="px-4 py-3 w-10 text-left">
                   <input
                     type="checkbox"
                     checked={allSelected}
-                    ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                    ref={(input) => {
+                      if (input) input.indeterminate = someSelected;
+                    }}
                     onChange={(e) => onSelectAll(e.target.checked)}
                     className="w-4 h-4 rounded accent-primary cursor-pointer"
-                    aria-label="Pilih semua produk di halaman ini"
                   />
                 </th>
-                <th className="px-4 py-3 w-16 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground">
-                  Foto
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground w-16">Foto</th>
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('modelName')}>
+                  <div className="flex items-center gap-1">Info Produk {renderSortIcon('modelName')}</div>
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
-                  onClick={() => onSort('brand')}
-                >
-                  <div className="flex items-center gap-1">
-                    Brand
-                    <SortIcon colKey="brand" sortKey={sortKey} sortDir={sortDir} />
-                  </div>
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('productType')}>
+                  <div className="flex items-center gap-1">Kategori {renderSortIcon('productType')}</div>
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
-                  onClick={() => onSort('modelName')}
-                >
-                  <div className="flex items-center gap-1">
-                    Model
-                    <SortIcon colKey="modelName" sortKey={sortKey} sortDir={sortDir} />
-                  </div>
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('category')}>
+                  <div className="flex items-center gap-1">Gender {renderSortIcon('category')}</div>
                 </th>
-                <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-                  Kode Produk
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('brand')}>
+                  <div className="flex items-center gap-1">Brand {renderSortIcon('brand')}</div>
                 </th>
-                <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground">
-                  Warna
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground">Warna</th>
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground">Ukuran</th>
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('stock')}>
+                  <div className="flex items-center gap-1">Stok {renderSortIcon('stock')}</div>
                 </th>
-                <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground">
-                  Kategori
+                <th className="px-4 py-3 text-right font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('originalPrice')}>
+                  <div className="flex items-center gap-1 justify-end">Harga Normal {renderSortIcon('originalPrice')}</div>
                 </th>
-                <th className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-                  Ukuran 
+                <th className="px-4 py-3 text-right font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('discountPercent')}>
+                  <div className="flex items-center gap-1 justify-end">Diskon {renderSortIcon('discountPercent')}</div>
                 </th>
-                <th
-                  className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
-                  onClick={() => onSort('totalStock')}
-                >
-                  <div className="flex items-center gap-1">
-                    Total Stok
-                    <SortIcon colKey="totalStock" sortKey={sortKey} sortDir={sortDir} />
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
-                  onClick={() => onSort('originalPrice')}
-                >
-                  <div className="flex items-center gap-1">
-                    Harga
-                    <SortIcon colKey="originalPrice" sortKey={sortKey} sortDir={sortDir} />
-                  </div>
-                </th>
-                <th
-                  className="px-4 py-3 text-left text-2xs font-600 uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap"
-                  onClick={() => onSort('discountPercent')}
-                >
-                  <div className="flex items-center gap-1">
-                    Diskon
-                    <SortIcon colKey="discountPercent" sortKey={sortKey} sortDir={sortDir} />
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-right text-2xs font-600 uppercase tracking-wider text-muted-foreground w-28">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 text-right font-600 text-muted-foreground">Harga Diskon</th>
+                <th className="px-4 py-3 text-center font-600 text-muted-foreground w-28">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {products.map((product) => {
-                // 2. Log per produk untuk mengecek isi url gambar spesifiknya
-                console.log(`Produk ID ${product.id || 'Tanpa ID'}:`, {
-                  modelName: product.modelName,
-                  imageUrlProperty: product.imageUrl,
-                  allKeysOfProduct: Object.keys(product) 
-                });
-
                 const totalStock = Array.isArray(product.sizes)
                   ? product.sizes.reduce((s, sz) => s + (Number(sz?.stock) || 0), 0)
                   : 0;
 
-                // Proteksi Tipe Data: Memastikan fungsi .has() dipanggil dengan benar
-                const isLowStock = (lowStockProductIds instanceof Set)
-                  ? lowStockProductIds.has(product.id)
-                  : Array.isArray(lowStockProductIds)
-                    ? (lowStockProductIds as string[]).includes(product.id)
-                    : false;
-
                 const isSelected = selectedIds.has(product.id);
                 
-                const sizeRange = product.sizes && product.sizes.length > 0
-                  ? product.sizes[0].eu
+                const sizeList = product.sizes && product.sizes.length > 0
+                  ? product.sizes.map(s => s.eu).sort((a,b)=>parseFloat(a)-parseFloat(b)).join(', ')
                   : '—';
 
                 const brandColor = BRAND_COLORS[product.brand] || '#64748b';
+
+                // PEMBENARAN 1: Tipe kategori murni diambil dari productType bawaan parser CSV
+                const rawType = (product as any).productType || 'FOOTWEAR';
+                const displayCategory = rawType.toUpperCase() === 'APPAREL' ? 'Apparel' : 'Footwear';
+
+                // PEMBENARAN 2: Target gender murni dibaca dari category database bawaan
+                const rawGender = product.category || 'UNISEX';
+                let displayGender = 'Unisex';
+                if (rawGender.toUpperCase() === 'MEN') displayGender = 'Men';
+                if (rawGender.toUpperCase() === 'WOMEN') displayGender = 'Women';
 
                 return (
                   <tr
@@ -225,29 +182,50 @@ export default function ProductTable({
                         checked={isSelected}
                         onChange={(e) => onSelectRow(product.id, e.target.checked)}
                         className="w-4 h-4 rounded accent-primary cursor-pointer"
-                        aria-label={`Pilih ${product.modelName}`}
                       />
                     </td>
 
                     {/* Image */}
                     <td className="px-4 py-3">
-                      <div className="w-10 h-10 rounded-lg overflow-hidden border bg-muted flex-shrink-0">
+                      <div className="w-11 h-11 rounded-lg overflow-hidden border bg-muted flex-shrink-0 shadow-sm">
                         <AppImage
                           src={product.imageUrl}
-                          alt={`Foto ${product.brand} ${product.modelName}`}
-                          width={40}
-                          height={40}
-                          className="w-full h-full object-cover"
+                          alt={`Foto ${product.brand}`}
+                          width={44}
+                          height={44}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                         />
                       </div>
+                    </td>
+
+                    {/* Info Model Name & Sku */}
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-600 text-foreground text-sm max-w-[220px] truncate">{product.modelName}</span>
+                        <span className="text-3xs font-mono text-muted-foreground">{product.productCode}</span>
+                      </div>
+                    </td>
+
+                    {/* Kategori */}
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-600 text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/50">
+                        {displayCategory}
+                      </span>
+                    </td>
+
+                    {/* Gender */}
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-muted-foreground font-500">
+                        {displayGender}
+                      </span>
                     </td>
 
                     {/* Brand */}
                     <td className="px-4 py-3">
                       <span
-                        className="text-2xs font-700 px-2 py-0.5 rounded-md whitespace-nowrap"
+                        className="text-3xs font-700 px-1.5 py-0.5 rounded whitespace-nowrap"
                         style={{
-                          backgroundColor: `${brandColor}18`,
+                          backgroundColor: `${brandColor}15`,
                           color: brandColor,
                         }}
                       >
@@ -255,94 +233,71 @@ export default function ProductTable({
                       </span>
                     </td>
 
-                    {/* Model */}
+                    {/* Warna */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-500 text-foreground max-w-[180px] truncate">{product.modelName}</p>
-                        {isLowStock && (
-                          <AlertTriangle size={13} style={{ color: 'var(--warning)' }} className="flex-shrink-0" title="Stok rendah" />
-                        )}
-                      </div>
+                      <span className="text-xs text-muted-foreground font-500">{product.color || '—'}</span>
                     </td>
 
-                    {/* Code */}
+                    {/* Ukuran Gabungan */}
                     <td className="px-4 py-3">
-                      <span className="text-xs font-mono text-muted-foreground">{product.productCode}</span>
-                    </td>
-
-                    {/* Color */}
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-foreground">{product.color}</span>
-                    </td>
-
-                    {/* Category */}
-                    <td className="px-4 py-3">
-                      <span className="text-2xs font-500 px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {CATEGORY_LABELS[product.category] ?? product.category}
+                      <span className="text-xs font-mono font-600 text-amber-800 bg-amber-50/70 border border-amber-200/60 px-2 py-0.5 rounded">
+                        {sizeList}
                       </span>
                     </td>
 
-                    {/* Sizes */}
+                    {/* Stok Terhitung */}
                     <td className="px-4 py-3">
-                      <span className="text-xs font-tabular text-muted-foreground whitespace-nowrap">{sizeRange}</span>
-                    </td>
-
-                    {/* Total Stock */}
-                    <td className="px-4 py-3">
-                      <span
-                        className="text-sm font-700 font-tabular"
-                        style={{
-                          color: totalStock === 0 ? 'var(--danger)' : totalStock <= 5 ? 'var(--warning)' : 'var(--success)',
-                        }}
-                      >
-                        {totalStock}
+                      <span className={`text-xs font-700 ${totalStock === 0 ? 'text-red-500' : 'text-slate-700'}`}>
+                        {totalStock} pcs
                       </span>
                     </td>
 
-                    {/* Price */}
-                    <td className="px-4 py-3">
-                      <div>
-                        {product.discountPercent > 0 && (
-                          <p className="text-2xs price-original font-tabular line-through opacity-50">{formatIDR(product.originalPrice)}</p>
-                        )}
-                        <p className="text-sm font-700 font-tabular text-foreground">{formatIDR(product.discountedPrice)}</p>
-                      </div>
+                    {/* Harga Retail (Harga Normal) */}
+                    <td className="px-4 py-3 text-right text-xs text-muted-foreground">
+                      {formatIDR(product.originalPrice)}
                     </td>
 
-                    {/* Discount badge */}
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs font-700 px-2 py-0.5 rounded-full ${
-                          product.discountPercent === 0 ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-600'
-                        }`}
-                      >
-                        {product.discountPercent === 0 ? 'No disc.' : `-${product.discountPercent}%`}
+                    {/* Diskon */}
+                    <td className="px-4 py-3 text-right">
+                      {product.discountPercent > 0 ? (
+                        <span className="text-3xs font-700 text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">
+                          -{product.discountPercent}%
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground font-500">0%</span>
+                      )}
+                    </td>
+
+                    {/* Harga Jual (Harga Diskon) */}
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-xs font-700 text-emerald-600">
+                        {formatIDR(product.discountedPrice || product.originalPrice)}
                       </span>
                     </td>
 
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Tombol Navigasi Aksi */}
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => setViewProduct(product)}
-                          className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                          title="Lihat detail produk"
+                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                          title="Lihat Detail"
                         >
-                          <Eye size={15} className="text-muted-foreground" />
+                          <Eye size={14} />
                         </button>
                         <button
                           onClick={() => onEdit(product)}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                          title="Edit produk"
+                          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                          title="Ubah Data"
                         >
-                          <Edit2 size={15} className="text-blue-500" />
+                          <Edit2 size={14} />
                         </button>
                         <button
                           onClick={() => onDelete(product.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                          title="Hapus produk"
+                          className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                          title="Hapus"
                         >
-                          <Trash2 size={15} className="text-red-500" />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -353,66 +308,73 @@ export default function ProductTable({
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t bg-muted/30">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Baris per halaman:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="text-xs rounded-lg border bg-input text-foreground px-2 py-1 cursor-pointer"
-            >
-              {PAGE_SIZES.map((s) => (
-                <option key={`pgsize-${s}`} value={s}>{s}</option>
-              ))}
-            </select>
-            <span className="text-xs text-muted-foreground">
-              {startItem}–{endItem} dari {totalFiltered}
-            </span>
+        {/* Bagian Footer Pagination Utama */}
+        <div className="px-4 py-3 border-t bg-muted/30 flex items-center justify-between flex-wrap gap-2">
+          <div className="text-xs text-muted-foreground font-500">
+            Menampilkan <span className="font-600 text-foreground">{startItem}</span>-{''}
+            <span className="font-600 text-foreground">{endItem}</span> dari{''}
+            <span className="font-600 text-foreground"> {totalFiltered}</span> produk
           </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onPageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft size={16} className="text-muted-foreground" />
-            </button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-500">
+              <span>Baris per halaman:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                className="border bg-input rounded-md px-1.5 py-0.5 text-foreground focus:outline-none text-xs font-600 cursor-pointer"
+              >
+                {[5, 10, 20, 50].map((size) => (
+                  <option key={`ps-${size}`} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
 
-            {getPageNumbers().map((page, idx) =>
-              page === '...' ? (
-                <span key={`pgdot-${idx}`} className="px-2 text-xs text-muted-foreground">…</span>
-              ) : (
-                <button
-                  key={`pgnum-${page}`}
-                  onClick={() => onPageChange(page as number)}
-                  className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-500 transition-all ${
-                    currentPage === page ? 'bg-orange-500 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  {page}
-                </button>
-              )
-            )}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={16} className="text-muted-foreground" />
+              </button>
 
-            <button
-              onClick={() => onPageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight size={16} className="text-muted-foreground" />
-            </button>
+              {getPageNumbers().map((page, idx) =>
+                page === '...' ? (
+                  <span key={`pgdot-${idx}`} className="px-2 text-xs text-muted-foreground">…</span>
+                ) : (
+                  <button
+                    key={`pgnum-${page}`}
+                    onClick={() => onPageChange(page as number)}
+                    className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-500 transition-all ${
+                      currentPage === page ? 'bg-orange-500 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+
+              <button
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={16} className="text-muted-foreground" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Detail modal */}
       {viewProduct && (
         <ProductDetailModal
           product={viewProduct}
           onClose={() => setViewProduct(null)}
-          onEdit={(p) => { setViewProduct(null); onEdit(p); }}
+          onEdit={(p) => {
+            setViewProduct(null);
+            onEdit(p);
+          }}
         />
       )}
     </>

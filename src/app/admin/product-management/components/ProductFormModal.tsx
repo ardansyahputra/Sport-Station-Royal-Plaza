@@ -14,13 +14,15 @@ type ProductFormModalProps = {
   existingProducts: Product[];
 };
 
+// Menambahkan field gender secara terpisah dari category di form
 type FormValues = {
   brand: Product['brand'];
   productCode: string;
   fullSkuCode: string;
   modelName: string;
   color: string;
-  category: Product['category'];
+  category: string; // Tempat menyimpan jenis produk (Footwear/Apparel)
+  gender: Product['category']; // Tempat menyimpan gender (MEN/WOMEN/dll)
   imageFile: FileList;
   originalPrice: number;
   discountPercent: 0 | 10 | 20 | 30;
@@ -38,7 +40,11 @@ const BRANDS: Product['brand'][] = [
   'Puma',
 ];
 
-const CATEGORIES: Product['category'][] = [
+// Opsi pilihan untuk dropdown Kategori murni jenis barang
+const CATEGORIES = ['FOOTWEAR', 'APPAREL'];
+
+// Opsi pilihan untuk dropdown Gender
+const GENDERS: Product['category'][] = [
   'MEN',
   'WOMEN',
   'UNISEX',
@@ -77,7 +83,8 @@ export default function ProductFormModal({
       fullSkuCode: '',
       modelName: '',
       color: '',
-      category: 'MEN',
+      category: 'FOOTWEAR',
+      gender: 'MEN',
       originalPrice: 0,
       discountPercent: 0,
       sizeTextRange: '',
@@ -85,7 +92,7 @@ export default function ProductFormModal({
   });
 
   /* =====================================================
-     WATCH PREVIEW HARGA (Otomatis sinkron saat input berubah)
+     WATCH PREVIEW HARGA
   ===================================================== */
   const discountPercent = watch('discountPercent') || 0;
   const originalPrice = watch('originalPrice') || 0;
@@ -101,10 +108,9 @@ export default function ProductFormModal({
     if (!isOpen) return;
 
     if (editingProduct) {
-      // Ambil teks ukuran lama dari index pertama jika ada
       const existingSizeText =
         editingProduct.sizes && editingProduct.sizes.length > 0
-          ? editingProduct.sizes[0].eu
+          ? editingProduct.sizes.map((s) => s.eu).join(', ')
           : '';
 
       reset({
@@ -113,7 +119,10 @@ export default function ProductFormModal({
         fullSkuCode: editingProduct.fullSkuCode || '',
         modelName: editingProduct.modelName,
         color: editingProduct.color,
-        category: editingProduct.category,
+        // PENTING: Karena struktur data asli di mockData/database menggunakan field `category` untuk gender,
+        // kita sesuaikan mapping agar input form terisi tepat ke dropdown masing-masing.
+        category: (editingProduct as any).productType || 'FOOTWEAR', 
+        gender: editingProduct.category, // Data MEN/WOMEN dari database masuk ke form gender
         originalPrice: editingProduct.originalPrice,
         discountPercent: editingProduct.discountPercent,
         sizeTextRange: existingSizeText,
@@ -127,7 +136,8 @@ export default function ProductFormModal({
         fullSkuCode: '',
         modelName: '',
         color: '',
-        category: 'MEN',
+        category: 'FOOTWEAR',
+        gender: 'MEN',
         originalPrice: 0,
         discountPercent: 0,
         sizeTextRange: '',
@@ -142,33 +152,33 @@ export default function ProductFormModal({
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
 
-    // Simulasi delay penyimpanan
     await new Promise((r) => setTimeout(r, 200));
 
-    // Pertahankan nilai stok barang lama jika sedang dalam mode edit
-    const oldStock = editingProduct?.sizes?.[0]?.stock ?? 10;
-
-    const formattedSizes: SizeEntry[] = data.sizeTextRange.trim() !== '' 
-      ? [
-          {
-            eu: data.sizeTextRange.trim(),
-            uk: editingProduct?.sizes?.[0]?.uk ?? '',
-            us: editingProduct?.sizes?.[0]?.us ?? '',
-            cm: editingProduct?.sizes?.[0]?.cm ?? '',
-            stock: oldStock, 
-          }
-        ]
-      : [];
+    let formattedSizes: SizeEntry[] = [];
+    if (data.sizeTextRange.trim() !== '') {
+      const sizeArray = data.sizeTextRange.split(',').map((s) => s.trim()).filter(Boolean);
+      
+      formattedSizes = sizeArray.map((sizeStr) => {
+        const matchOldSize = editingProduct?.sizes?.find((old) => old.eu === sizeStr);
+        return {
+          eu: sizeStr,
+          uk: matchOldSize?.uk ?? '',
+          us: matchOldSize?.us ?? '',
+          cm: matchOldSize?.cm ?? '',
+          stock: matchOldSize ? matchOldSize.stock : (editingProduct?.sizes?.[0]?.stock ?? 10),
+        };
+      });
+    }
 
     const product: Product = {
-      // PENTING: Tetap gunakan ID lama saat edit agar terhitung sebagai UPDATE
       id: editingProduct?.id ?? `prod-${Date.now()}`,
       productCode: data.productCode,
       fullSkuCode: data.fullSkuCode,
       brand: data.brand,
       modelName: data.modelName,
       color: data.color,
-      category: data.category,
+      // Dikembalikan ke schema asli database: field `category` menampung nilai Gender pilihan form
+      category: data.gender, 
       imageUrl:
         imagePreview ||
         'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
@@ -180,9 +190,12 @@ export default function ProductFormModal({
       updatedAt: new Date().toISOString(),
     };
 
+    // Menyisipkan properti custom jika data CSV atau state tabelmu memisahkan tipe produk secara literal
+    (product as any).productType = data.category;
+
     onSave(product);
     setIsSubmitting(false);
-    onClose(); // Menutup modal otomatis setelah disimpan
+    onClose(); 
   };
 
   return (
@@ -238,14 +251,28 @@ export default function ProductFormModal({
             </select>
           </div>
 
-          {/* CATEGORY */}
-          <div>
-            <label className="block text-sm mb-1 font-medium text-slate-700">Category (Gender)</label>
-            <select className="w-full border rounded-lg px-3 py-2 text-sm bg-white" {...register('category')}>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-2">
+            {/* CATEGORY (Murni Jenis Produk) */}
+            <div>
+              <label className="block text-sm mb-1 font-medium text-slate-700">Kategori</label>
+              <select className="w-full border rounded-lg px-2 py-2 text-sm bg-white" {...register('category')}>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c === 'FOOTWEAR' ? 'Footwear' : 'Apparel'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* GENDER (Terpisah Sendiri) */}
+            <div>
+              <label className="block text-sm mb-1 font-medium text-slate-700">Gender</label>
+              <select className="w-full border rounded-lg px-2 py-2 text-sm bg-white" {...register('gender')}>
+                {GENDERS.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* MODEL NAME */}
@@ -312,7 +339,7 @@ export default function ProductFormModal({
             <label className="block text-sm mb-1 font-medium text-slate-700">Ukuran / Size Tersedia</label>
             <input
               type="text"
-              placeholder="Contoh langsung ketik: 36-40 atau 39,40,41"
+              placeholder="Contoh: 38, 39, 40, 41"
               className="w-full border rounded-lg px-3 py-2 text-sm bg-orange-50/20 border-orange-200 focus:border-orange-500"
               {...register('sizeTextRange', { required: 'Ukuran wajib diisi' })}
             />
