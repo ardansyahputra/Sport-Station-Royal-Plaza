@@ -120,7 +120,7 @@ export default function MetricsBentoGrid({
             {outOfStockCount} SKU habis stok
           </p>
           <Link
-            href="/product-management"
+            href="/admin/product-management"
             className="ml-auto text-2xs font-600 flex items-center gap-1"
             style={{ color: lowStockCount > 10 ? 'var(--danger)' : 'var(--warning)' }}
           >

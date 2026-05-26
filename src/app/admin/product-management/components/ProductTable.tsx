@@ -37,6 +37,16 @@ const BRAND_COLORS: Record<string, string> = {
   SKECHERS: '#2563EB',
 };
 
+const SizeBadge = ({ size, stock }: { size: string, stock: number }) => (
+  <span 
+    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200/60"
+    title={`Stok: ${stock}`}
+  >
+    {size}
+    <span className="opacity-50 font-normal">({stock})</span>
+  </span>
+);
+
 export default function ProductTable({
   products,
   selectedIds,
@@ -240,11 +250,18 @@ export default function ProductTable({
 
                     {/* Ukuran Gabungan */}
                     <td className="px-4 py-3">
-                      <span className="text-xs font-mono font-600 text-amber-800 bg-amber-50/70 border border-amber-200/60 px-2 py-0.5 rounded">
-                        {sizeList}
-                      </span>
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {product.sizes && product.sizes.length > 0 ? (
+                          product.sizes
+                            .sort((a, b) => parseFloat(a.eu) - parseFloat(b.eu))
+                            .map((sz, idx) => (
+                              <SizeBadge key={`${product.id}-${idx}`} size={sz.eu} stock={sz.stock} />
+                            ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
                     </td>
-
                     {/* Stok Terhitung */}
                     <td className="px-4 py-3">
                       <span className={`text-xs font-700 ${totalStock === 0 ? 'text-red-500' : 'text-slate-700'}`}>

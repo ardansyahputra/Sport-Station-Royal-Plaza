@@ -16,7 +16,7 @@ export default function QuickActions() {
 
       
       <Link
-        href="/product-management"
+        href="/admin/product-management"
         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-500 bg-card border hover:bg-muted transition-all duration-150 active:scale-95"
         style={{ color: 'var(--primary)' }}
       >

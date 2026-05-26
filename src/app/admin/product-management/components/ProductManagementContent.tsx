@@ -11,11 +11,9 @@ import ProductTable from './ProductTable';
 import ProductFormModal from './ProductFormModal';
 import ImportModal from './ImportModal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import * as XLSX from 'xlsx';
 
 export default function ProductManagementContent() {
-  /* =====================================================
-      STATE MANAGEMENTS
-  ===================================================== */
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [search, setSearch] = useState('');
@@ -28,23 +26,16 @@ export default function ProductManagementContent() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  // Modal control states
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-
-  // Loading states
   const [saveLoading, setSaveLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [tableKey, setTableKey] = useState(0);
 
-  /* =====================================================
-      LOAD INITIAL DATA
-  ===================================================== */
   useEffect(() => {
     const load = async () => {
       try {
@@ -60,82 +51,109 @@ export default function ProductManagementContent() {
     load();
   }, []);
 
-  /* =====================================================
-      ALGORITMA EXPORT CSV (100% STRUKTUR SPORT STATION)
-  ===================================================== */
+  const lowStockProductIds = useMemo(
+    () => computeLowStockAlerts(products),
+    [products]
+  );
+
+  /* ---- EXPORT TO XLSX ---- */
   const handleExport = () => {
-    // Header kolom disamakan persis dengan target
-    const headers = [
-      'Article Code',
-      'Description',
-      'Category',
-      'originalPrice',
-      'DiscountPrice',
-      'Size',
-      'stock',
-      'imageUrl'
-    ];
+    const exportData = filtered.map((p) => ({
+      'Article Code': p.productCode,
+      'Description': p.modelName,
+      'Brand': p.brand,
+      'Category': p.category,
+      'Type': p.productType,
+      'Color': p.color,
+      'Size & Stock': p.sizes.map(s => `${s.eu}(${s.stock})`).join(', '),
+      'Original Price': p.originalPrice,
+      'Discount %': p.discountPercent,
+      'Discount Price': p.discountedPrice,
+      'Image URL': p.imageUrl
+    }));
 
-    const rows: string[] = [];
-
-    // Ambil data dari kondisi produk aktif saat ini
-    filtered.forEach((p) => {
-      // 1. Ubah format nominal angka menjadi teks ber-koma pemisah ribuan (Contoh: 799000 -> "799,000")
-      const formattedOriginal = p.originalPrice.toLocaleString('en-US');
-      const formattedDiscounted = p.discountedPrice.toLocaleString('en-US');
-      
-      // 2. Gabungkan array size internal menjadi penulisan rentang teks (Contoh: [36,37,38,39,40] -> "36-40")
-      let sizeString = '';
-      let totalStock = 0;
-      if (p.sizes && p.sizes.length > 0) {
-        totalStock = p.sizes.reduce((sum, s) => sum + (s.stock || 0), 0);
-        const sortedSizes = p.sizes
-          .map(s => Number(s.eu))
-          .filter(s => !isNaN(s))
-          .sort((a, b) => a - b);
-          
-        if (sortedSizes.length > 1) {
-          sizeString = `${sortedSizes[0]}-${sortedSizes[sortedSizes.length - 1]}`;
-        } else if (sortedSizes.length === 1) {
-          sizeString = String(sortedSizes[0]);
-        }
-      }
-
-      // Bungkus kolom teks & angka dengan tanda kutip ganda demi konsistensi struktur CSV Sport Station
-      const row = [
-        `"${p.productCode}"`,
-        `"${p.modelName}"`,
-        `"${p.category}"`,
-        `"${formattedOriginal}"`,
-        `"${formattedDiscounted}"`,
-        `"${sizeString}"`,
-        totalStock,
-        `"${p.imageUrl || ''}"`
-      ].join(',');
-      
-      rows.push(row);
-    });
-
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    // Tambahkan \uFEFF BOM (Byte Order Mark) agar dibaca rapi langsung di Microsoft Excel tanpa berantakan
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `sport-station-products-${Date.now()}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    toast.success(`Berhasil mengunduh ${rows.length} produk dalam format master Sport Station.`);
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Produk");
+    XLSX.writeFile(wb, `Data_Produk_${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast.success("Berhasil mengekspor data ke Excel (.xlsx)");
   };
 
-  /* =====================================================
-      ALGORITMA TERIMA PRODUK HASIL PARSING DARI TOOLBAR / MODAL
-  ===================================================== */
-  const handleImportProducts = async (newProducts: Product[]) => {
-    if (!newProducts || newProducts.length === 0) return;
+  const filtered = useMemo(() => {
+    return products.filter((p) => {
+      const matchesSearch =
+        p.productCode.toLowerCase().includes(search.toLowerCase()) ||
+        p.modelName.toLowerCase().includes(search.toLowerCase());
+      const matchesBrand =
+        !filterBrand || p.brand.toLowerCase() === filterBrand.toLowerCase();
+      const matchesDiscount =
+        !filterDiscount || String(p.discountPercent) === filterDiscount;
+      const matchesCategory =
+        !filterCategory ||
+        p.category.toUpperCase() === filterCategory.toUpperCase();
+      const totalStock = p.sizes.reduce((s, sz) => s + sz.stock, 0);
+      let matchesStock = true;
+      if (filterStock === 'out') matchesStock = totalStock === 0;
+      else if (filterStock === 'low')
+        matchesStock = lowStockProductIds.has(p.id) && totalStock > 0;
+      else if (filterStock === 'safe') matchesStock = totalStock > 3;
+      return (
+        matchesSearch &&
+        matchesBrand &&
+        matchesDiscount &&
+        matchesCategory &&
+        matchesStock
+      );
+    });
+  }, [
+    products,
+    search,
+    filterBrand,
+    filterDiscount,
+    filterCategory,
+    filterStock,
+    lowStockProductIds,
+  ]);
 
-    // Masukkan data baru, timpa data lama jika memiliki Article Code yang sama (Upsert)
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    const next = [...filtered];
+    next.sort((a, b) => {
+      let valA: any = a[sortKey as keyof Product];
+      let valB: any = b[sortKey as keyof Product];
+      if (sortKey === 'stock') {
+        valA = a.sizes.reduce((s, sz) => s + sz.stock, 0);
+        valB = b.sizes.reduce((s, sz) => s + sz.stock, 0);
+      }
+      if (typeof valA === 'string') {
+        return sortDir === 'asc'
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA);
+      }
+      return sortDir === 'asc'
+        ? (valA ?? 0) - (valB ?? 0)
+        : (valB ?? 0) - (valA ?? 0);
+    });
+    return next;
+  }, [filtered, sortKey, sortDir]);
+
+  const totalPages = Math.ceil(sorted.length / pageSize) || 1;
+
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [sorted, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterBrand, filterDiscount, filterCategory, filterStock]);
+
+  const handleImportProducts = async (newProducts: Product[]) => {
+    if (!Array.isArray(newProducts) || newProducts.length === 0) {
+      toast.error('Tidak ada produk yang berhasil dibaca dari file.');
+      return;
+    }
+
     const currentProductMap = new Map<string, Product>();
     products.forEach((p) => currentProductMap.set(p.productCode, p));
     newProducts.forEach((p) => currentProductMap.set(p.productCode, p));
@@ -145,7 +163,9 @@ export default function ProductManagementContent() {
     setProducts(updatedProductsList);
     setSelectedIds(new Set());
     setTableKey((prev) => prev + 1);
-    toast.success(`Berhasil menambahkan/memperbarui ${newProducts.length} produk ke dalam tabel.`);
+    toast.success(
+      `Berhasil menambahkan/memperbarui ${newProducts.length} produk ke dalam tabel.`
+    );
 
     try {
       await saveStoredProducts(updatedProductsList);
@@ -155,61 +175,6 @@ export default function ProductManagementContent() {
     }
   };
 
-  /* =====================================================
-      FILTER & SORT LOGIC INDEPENDEN
-  ===================================================== */
-  const lowStockProductIds = useMemo(() => computeLowStockAlerts(products), [products]);
-
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      const matchesSearch =
-        p.productCode.toLowerCase().includes(search.toLowerCase()) ||
-        p.modelName.toLowerCase().includes(search.toLowerCase());
-      const matchesBrand = !filterBrand || p.brand.toLowerCase() === filterBrand.toLowerCase();
-      const matchesDiscount = !filterDiscount || String(p.discountPercent) === filterDiscount;
-      const matchesCategory = !filterCategory || p.category.toUpperCase() === filterCategory.toUpperCase();
-
-      const totalStock = p.sizes.reduce((s, sz) => s + sz.stock, 0);
-      let matchesStock = true;
-      if (filterStock === 'out') matchesStock = totalStock === 0;
-      else if (filterStock === 'low') matchesStock = lowStockProductIds.has(p.id) && totalStock > 0;
-      else if (filterStock === 'safe') matchesStock = totalStock > 3;
-
-      return matchesSearch && matchesBrand && matchesDiscount && matchesCategory && matchesStock;
-    });
-  }, [products, search, filterBrand, filterDiscount, filterCategory, filterStock, lowStockProductIds]);
-
-  const sorted = useMemo(() => {
-    if (!sortKey) return filtered;
-    const next = [...filtered];
-    next.sort((a, b) => {
-      let valA: any = a[sortKey as keyof Product];
-      let valB: any = b[sortKey as keyof Product];
-
-      if (sortKey === 'stock') {
-        valA = a.sizes.reduce((s, sz) => s + sz.stock, 0);
-        valB = b.sizes.reduce((s, sz) => s + sz.stock, 0);
-      }
-
-      if (typeof valA === 'string') {
-        return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      }
-      return sortDir === 'asc' ? (valA ?? 0) - (valB ?? 0) : (valB ?? 0) - (valA ?? 0);
-    });
-    return next;
-  }, [filtered, sortKey, sortDir]);
-
-  const totalPages = Math.ceil(sorted.length / pageSize) || 1;
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return sorted.slice(start, start + pageSize);
-  }, [sorted, currentPage, pageSize]);
-
-  useEffect(() => { setCurrentPage(1); }, [search, filterBrand, filterDiscount, filterCategory, filterStock]);
-
-  /* =====================================================
-      CRUD HANDLERS
-  ===================================================== */
   const handleSaveProduct = async (product: Product) => {
     setSaveLoading(true);
     let next: Product[];
@@ -286,10 +251,18 @@ export default function ProductManagementContent() {
           setEditingProduct(null);
           setFormModalOpen(true);
         }}
-        onImport={(parsedArrayFromToolbar) => handleImportProducts(parsedArrayFromToolbar)}
+        onImport={() => setImportModalOpen(true)}
         onExport={handleExport}
         onDeleteAll={() => setDeleteAllOpen(true)}
-        hasActiveFilters={!!(search || filterBrand || filterDiscount || filterCategory || filterStock)}
+        hasActiveFilters={
+          !!(
+            search ||
+            filterBrand ||
+            filterDiscount ||
+            filterCategory ||
+            filterStock
+          )
+        }
         onResetFilters={() => {
           setSearch('');
           setFilterBrand('');
@@ -348,7 +321,9 @@ export default function ProductManagementContent() {
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-4 z-50 border border-slate-800 animate-in fade-in slide-in-from-bottom-4">
           <span className="text-xs font-500 text-slate-300">
-            Terpilih <strong className="text-white font-700">{selectedIds.size}</strong> produk
+            Terpilih{' '}
+            <strong className="text-white font-700">{selectedIds.size}</strong>{' '}
+            produk
           </span>
           <button
             onClick={() => setBulkDeleteOpen(true)}
@@ -381,7 +356,9 @@ export default function ProductManagementContent() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && handleDeleteProduct(deleteTarget)}
         title="Hapus Produk"
-        message={`Apakah yakin ingin menghapus produk "${products.find((p) => p.id === deleteTarget)?.modelName}"?`}
+        message={`Apakah yakin ingin menghapus produk "${
+          products.find((p) => p.id === deleteTarget)?.modelName
+        }"?`}
         confirmLabel="Hapus Produk"
         isDestructive
         isLoading={deleteLoading}

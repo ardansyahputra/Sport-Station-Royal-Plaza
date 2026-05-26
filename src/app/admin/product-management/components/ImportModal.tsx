@@ -2,8 +2,13 @@
 
 import React, { useState, useRef } from 'react';
 import Modal from '@/components/ui/Modal';
-import { Upload, Loader2 } from 'lucide-react';
-import type { Product, SizeEntry } from '@/lib/mockData';
+import { Upload, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import type { Product } from '@/lib/mockData';
+
+// Struktur kolom sesuai template Excel:
+// Article Code | Description | Brand | Category | Color | Size |
+// stock | originalPrice | DiscountPercent | DiscountPrice | imageUrl
 
 type ImportModalProps = {
   isOpen: boolean;
@@ -11,206 +16,364 @@ type ImportModalProps = {
   onImport: (products: Product[]) => void;
 };
 
-type ImportResult = {
-  success: number;
-  errors: string[];
-  products: Product[];
+type SizeEntry = {
+  eu: string;
+  uk: string;
+  us: string;
+  cm: string;
+  stock: number;
 };
 
-// Fungsi pembersih sel CSV yang super bandel
-function cleanCSVCell(cell: string): string {
-  if (!cell) return '';
-  let cleaned = cell.trim();
-  
-  // Hapus kutip di awal dan akhir akibat string mentah pembungkus
-  cleaned = cleaned.replace(/^"+|"+$/g, '');
-  
-  // Perbaiki double quotes bertumpuk (""Warna"" menjadi Warna)
-  cleaned = cleaned.replace(/""/g, '"').replace(/^"+|"+$/g, '');
-  
-  // Jika ada koma tersisa di ujung akibat glitch pemisahan, bersihkan
-  if (cleaned.endsWith(',')) {
-    cleaned = cleaned.substring(0, cleaned.length - 1);
-  }
-  return cleaned.trim();
-}
+type ProductDraft = {
+  productCode: string;
+  modelName: string;
+  brand: string;
+  category: string;
+  productType: string;
+  color: string;
+  imageUrl: string;
+  originalPrice: number;
+  discountPercent: number;
+  discountedPrice: number;
+  sizes: SizeEntry[];
+};
 
-function parseCSVRobust(csvText: string): ImportResult {
-  // Pecah berdasarkan baris
-  const lines = csvText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const productMap = new Map<string, Product>();
-
-  if (lines.length <= 1) {
-    return { success: 0, errors: ['File CSV kosong.'], products: [] };
-  }
-
-  // PEMBERSIHAN TOTAL UNTUK HEADER YANG GLITCH/RUSAK
-  let headerLine = lines[0];
-  
-  // Perbaikan paksa jika baris pertama mengandung bug "Article Code,"
-  if (headerLine.includes('"Article Code,""')) {
-    headerLine = headerLine.replace('"Article Code,""', '"Article Code","');
-  }
-
-  // Pecah kolom header dengan regex cerdas
-  const rawHeaders = headerLine.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-  const headers = rawHeaders.map(h => cleanCSVCell(h).toLowerCase());
-
-  // Cari index lokasi kolom secara fleksibel
-  const idxCode = headers.findIndex(h => h.includes('article') || h.includes('code'));
-  const idxDesc = headers.findIndex(h => h.includes('description') || h.includes('model') || h.includes('desc'));
-  const idxBrand = headers.findIndex(h => h.includes('brand'));
-  const idxCategory = headers.findIndex(h => h.includes('category'));
-  const idxGender = headers.findIndex(h => h.includes('gender'));
-  const idxColor = headers.findIndex(h => h.includes('warna') || h.includes('color'));
-  const idxPrice = headers.findIndex(h => h.includes('originalprice') || h.includes('harga'));
-  const idxDiscountPrice = headers.findIndex(h => h.includes('discountprice'));
-  const idxSize = headers.findIndex(h => h.includes('size') || h.includes('ukuran'));
-  const idxStock = headers.findIndex(h => h.includes('stock') || h.includes('stok'));
-  const idxImg = headers.findIndex(h => h.includes('imageurl') || h.includes('foto'));
-
-  // Validasi darurat jika kolom inti masih gagal ditemukan akibat struktur CSV hancur
-  if (idxCode === -1 || idxBrand === -1) {
-    return {
-      success: 0,
-      errors: ['Struktur kolom CSV tidak dikenali. Pastikan nama header bersih.'],
-      products: []
-    };
-  }
-
-  // Iterasi data baris produk (mulai dari baris index 1)
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) continue;
-
-    const rawCells = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-    const cells = rawCells.map(c => cleanCSVCell(c));
-
-    // Ambil data murni berdasarkan index yang sudah dihitung presisi
-    const productCode = cells[idxCode];
-    if (!productCode) continue;
-
-    const modelName = cells[idxDesc] || 'Produk Tanpa Nama';
-    const brand = cells[idxBrand] || 'Mixed';
-    const color = cells[idxColor] || 'Mixed';
-    const csvCategory = (cells[idxCategory] || 'FOOTWEAR').toUpperCase();
-    const csvGender = (cells[idxGender] || 'UNISEX').toUpperCase();
-
-    // Normalisasi nominal harga dari karakter non-angka (seperti titik/koma separator)
-    const originalPrice = parseInt((cells[idxPrice] || '0').replace(/[^0-9]/g, ''), 10) || 0;
-    const discountedPrice = parseInt((cells[idxDiscountPrice] || '0').replace(/[^0-9]/g, ''), 10) || originalPrice;
-
-    // Hitung persentase diskon belanja
-    let discountPercent: 0 | 10 | 20 | 30 = 0;
-    if (originalPrice > 0 && discountedPrice < originalPrice) {
-      const computedPct = Math.round(((originalPrice - discountedPrice) / originalPrice) * 100);
-      if (computedPct >= 25) discountPercent = 30;
-      else if (computedPct >= 15) discountPercent = 20;
-      else if (computedPct >= 5) discountPercent = 10;
-    }
-
-    const imageUrl = cells[idxImg] || '';
-    const currentSize = cells[idxSize] || 'All Size';
-    const currentStock = parseInt(cells[idxStock], 10) || 0;
-
-    const sizeEntry: SizeEntry = {
-      eu: currentSize,
-      uk: '',
-      us: '',
-      cm: '',
-      stock: currentStock
-    };
-
-    // Gabungkan size jika nomor artikel produknya sama (Group By Article Code)
-    if (productMap.has(productCode)) {
-      const existingProduct = productMap.get(productCode)!;
-      const sizeExists = existingProduct.sizes.some(s => s.eu === currentSize);
-      if (!sizeExists) {
-        existingProduct.sizes.push(sizeEntry);
-      } else {
-        const foundSize = existingProduct.sizes.find(s => s.eu === currentSize)!;
-        foundSize.stock += currentStock;
-      }
-    } else {
-      const newProduct: Product = {
-        id: `prod-${productCode}`,
-        productCode,
-        fullSkuCode: productCode,
-        brand: brand as any,
-        modelName,
-        color,
-        category: csvGender as any, // Menyimpan data Gender ke property category default database
-        imageUrl,
-        originalPrice,
-        discountPercent,
-        discountedPrice,
-        sizes: [sizeEntry],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Menyimpan data Kategori ke properti kustom productType
-      (newProduct as any).productType = csvCategory;
-      productMap.set(productCode, newProduct);
-    }
-  }
-
-  const finalProducts = Array.from(productMap.values());
-  return { success: finalProducts.length, errors: [], products: finalProducts };
-}
-
-export default function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
+export default function ImportModal({
+  isOpen,
+  onClose,
+  onImport,
+}: ImportModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const processFile = (file: File) => {
-    setIsLoading(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const result = parseCSVRobust(text);
-      setImportResult(result);
-      setIsLoading(false);
-    };
-    reader.readAsText(file, 'UTF-8');
+  /* --------------------------------------------------
+      HELPER — ambil nilai dari row dengan fallback key
+  -------------------------------------------------- */
+  const getVal = (row: Record<string, any>, keys: string[]): string => {
+    for (const k of keys) {
+      if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+        return String(row[k]).trim();
+      }
+    }
+    return '';
   };
 
+  /* --------------------------------------------------
+      CORE — proses file Excel / CSV
+  -------------------------------------------------- */
+  const processFile = (file: File) => {
+    setIsLoading(true);
+    setError(null);
+    setPreview(null);
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
+          defval: '',
+          raw: false,
+        });
+
+        if (!jsonData || jsonData.length === 0) {
+          throw new Error('File tidak memiliki data atau sheet kosong.');
+        }
+
+        /* ---- MAP: productCode → ProductDraft ---- */
+        const productMap = new Map<string, ProductDraft>();
+
+        for (const row of jsonData) {
+          // --- Article Code (wajib ada) ---
+          const articleCode = getVal(row, [
+            'Article Code',
+            'article_code',
+            'Artikel Kode',
+            'productCode',
+          ]);
+
+          if (!articleCode) {
+            console.warn('Row dilewati karena tidak ada Article Code:', row);
+            continue;
+          }
+
+          // --- Size ---
+          const sizeEu = getVal(row, ['Size', 'size', 'Ukuran', 'sizeEU']);
+
+          // --- Stock ---
+          const stock = Number(
+            getVal(row, ['stock', 'Stock', 'Stok']) || '0'
+          );
+
+          // --- Base product (hanya dibuat sekali per articleCode) ---
+          if (!productMap.has(articleCode)) {
+            // Price — hapus separator ribuan sebelum konversi
+            const originalPrice = Number(
+              getVal(row, [
+                'originalPrice',
+                'original_price',
+                'Harga Normal',
+              ]).replace(/,/g, '')
+            );
+
+            const discountedPriceRaw = Number(
+              getVal(row, [
+                'DiscountPrice',
+                'discount_price',
+                'Harga Diskon',
+              ]).replace(/,/g, '')
+            );
+
+            const discountPercent = Number(
+              getVal(row, [
+                'DiscountPercent',
+                'discount_percent',
+                'Diskon',
+              ]) || '0'
+            );
+
+            // Jika DiscountPrice tidak diisi, hitung otomatis
+            const discountedPrice =
+              discountedPriceRaw > 0
+                ? discountedPriceRaw
+                : Math.round(originalPrice * (1 - discountPercent / 100));
+
+            const brand = getVal(row, ['Brand', 'brand', 'Merek']) || 'Unknown';
+
+            const category = (
+              getVal(row, ['Category', 'category', 'Kategori']) || 'UNISEX'
+            ).toUpperCase();
+
+            const productType = (
+              getVal(row, ['ProductType', 'productType', 'Type']) || 'FOOTWEAR'
+            ).toUpperCase();
+
+            productMap.set(articleCode, {
+              productCode: articleCode,
+              modelName:
+                getVal(row, ['Description', 'description', 'Deskripsi']) ||
+                'No Name',
+              brand,
+              category,
+              productType,
+              color: getVal(row, ['Color', 'color', 'Warna']) || '-',
+              imageUrl: getVal(row, ['imageUrl', 'image_url', 'Gambar']),
+              originalPrice,
+              discountPercent,
+              discountedPrice,
+              sizes: [],
+            });
+          }
+
+          const product = productMap.get(articleCode)!;
+
+          /* ---- SIZE RANGE: "40-45" → expand jadi tiap size ---- */
+          if (sizeEu.includes('-')) {
+            const [start, end] = sizeEu.split('-').map(Number);
+            if (!isNaN(start) && !isNaN(end)) {
+              for (let s = start; s <= end; s++) {
+                const sStr = String(s);
+                const existing = product.sizes.find((x) => x.eu === sStr);
+                if (existing) {
+                  existing.stock += stock;
+                } else {
+                  product.sizes.push({ eu: sStr, uk: '', us: '', cm: '', stock });
+                }
+              }
+              continue;
+            }
+          }
+
+          /* ---- SIZE NORMAL: satu nilai ---- */
+          if (sizeEu && sizeEu !== '0') {
+            const existing = product.sizes.find((x) => x.eu === sizeEu);
+            if (existing) {
+              existing.stock += stock;
+            } else {
+              product.sizes.push({ eu: sizeEu, uk: '', us: '', cm: '', stock });
+            }
+          }
+        }
+
+        /* ---- Konversi Map → Product[] ---- */
+        const products: Product[] = Array.from(productMap.values()).map(
+          (p, index) => ({
+            id: `prod-${Date.now()}-${index}`,
+            productCode: p.productCode,
+            fullSkuCode: p.productCode,
+            modelName: p.modelName,
+            brand: p.brand,
+            category: p.category as Product['category'],
+            productType: p.productType as Product['productType'],
+            color: p.color,
+            imageUrl:
+              p.imageUrl ||
+              'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=150',
+            originalPrice: p.originalPrice,
+            discountPercent: p.discountPercent as Product['discountPercent'],
+            discountedPrice: p.discountedPrice,
+            sizes:
+              p.sizes.length > 0
+                ? p.sizes
+                : [{ eu: '0', uk: '', us: '', cm: '', stock: 0 }],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+        );
+
+        if (products.length === 0) {
+          throw new Error(
+            'Tidak ada produk valid ditemukan. Pastikan kolom "Article Code" terisi.'
+          );
+        }
+
+        setPreview(
+          `${products.length} produk siap diimpor dari ${jsonData.length} baris data.`
+        );
+
+        console.log('[ImportModal] Parsed products:', products);
+
+        onImport(products);
+        setIsLoading(false);
+        onClose();
+
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (err) {
+        console.error('[ImportModal] Error:', err);
+        setError(
+          err instanceof Error ? err.message : 'Gagal membaca file.'
+        );
+        setIsLoading(false);
+      }
+    };
+
+    reader.onerror = () => {
+      setError('Gagal membaca file. Coba lagi.');
+      setIsLoading(false);
+    };
+
+    // Wajib pakai readAsArrayBuffer agar XLSX bisa baca .xlsx maupun .csv
+    reader.readAsArrayBuffer(file);
+  };
+
+  /* --------------------------------------------------
+      FILE CHANGE HANDLER
+  -------------------------------------------------- */
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name
+      .substring(file.name.lastIndexOf('.'))
+      .toLowerCase();
+
+    if (!['.csv', '.xlsx', '.xls'].includes(ext)) {
+      setError('Format tidak didukung. Gunakan file CSV, XLSX, atau XLS.');
+      return;
+    }
+
+    processFile(file);
+  };
+
+  /* --------------------------------------------------
+      RENDER
+  -------------------------------------------------- */
   return (
-    <Modal isOpen={isOpen} onClose={() => { setImportResult(null); onClose(); }} title="Import CSV" size="md">
-      <div className="space-y-4 py-4 text-center">
-        {!importResult && !isLoading && (
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed rounded-xl p-8 cursor-pointer hover:bg-slate-50 border-slate-200"
-          >
-            <input ref={fileInputRef} type="file" className="hidden" accept=".csv" onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])} />
-            <Upload size={32} className="mx-auto text-slate-400 mb-2" />
-            <p className="text-sm font-medium text-slate-600">Klik untuk pilih dan unggah file CSV Anda</p>
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="py-6">
-            <Loader2 className="animate-spin mx-auto text-orange-500 mb-2" size={28} />
-            <p className="text-xs text-slate-500">Sedang membaca data produk...</p>
-          </div>
-        )}
-
-        {importResult && (
-          <div className="space-y-4 text-left">
-            <div className="p-3 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-medium">
-              ✔ Berhasil mendeteksi {importResult.success} produk dari file CSV Anda.
+    <Modal isOpen={isOpen} onClose={onClose} title="Import Produk">
+      <div className="space-y-4">
+        {/* Error */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <AlertTriangle
+              size={16}
+              className="text-red-500 mt-0.5 flex-shrink-0"
+            />
+            <div className="text-xs text-red-700">
+              <p className="font-600">Error:</p>
+              <p>{error}</p>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setImportResult(null)} className="px-3 py-1.5 bg-slate-100 text-xs rounded-lg">Ulangi</button>
-              <button 
-                onClick={() => { onImport(importResult.products); setImportResult(null); onClose(); }} 
-                className="px-4 py-1.5 bg-orange-500 text-white text-xs font-semibold rounded-lg"
+          </div>
+        )}
+
+        {/* Success preview */}
+        {preview && !error && (
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
+            <CheckCircle2
+              size={16}
+              className="text-green-500 mt-0.5 flex-shrink-0"
+            />
+            <p className="text-xs text-green-700">{preview}</p>
+          </div>
+        )}
+
+        {/* Drop zone */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".csv,.xlsx,.xls"
+          onChange={handleFileChange}
+        />
+
+        <div
+          onClick={() => !isLoading && fileInputRef.current?.click()}
+          className={`p-10 border-2 border-dashed rounded-lg text-center transition-all ${
+            isLoading
+              ? 'opacity-50 cursor-wait'
+              : 'cursor-pointer hover:bg-slate-50 hover:border-primary'
+          }`}
+        >
+          <Upload className="mx-auto text-slate-400" size={32} />
+          <p className="mt-2 text-sm text-slate-600 font-500">
+            {isLoading ? 'Memproses file...' : 'Klik untuk upload file'}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Support CSV / XLSX / XLS
+          </p>
+        </div>
+
+        {/* Kolom yang dikenali — sesuai template */}
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <p className="text-xs font-600 text-slate-600 mb-2">
+            Kolom yang dikenali dari template:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              'Article Code',
+              'Description',
+              'Brand',
+              'Category',
+              'Color',
+              'Size',
+              'stock',
+              'originalPrice',
+              'DiscountPercent',
+              'DiscountPrice',
+              'imageUrl',
+            ].map((col) => (
+              <span
+                key={col}
+                className="text-2xs bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-mono"
               >
-                Tampilkan di Tabel
-              </button>
-            </div>
+                {col}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex items-center justify-center gap-2 text-sm text-slate-600">
+            <Loader2 className="animate-spin" size={16} />
+            <span>Membaca data...</span>
           </div>
         )}
       </div>
