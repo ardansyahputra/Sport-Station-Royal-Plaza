@@ -33,6 +33,8 @@ export type Product = {
     | 'KIDS'
     | 'INFANT';
 
+  subCategory: string; // Tambahkan ini untuk: 'Running', 'Casual', 'Sport', dll
+  
   imageUrl: string;
 
   originalPrice: number;

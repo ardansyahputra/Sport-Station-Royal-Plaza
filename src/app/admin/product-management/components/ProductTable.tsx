@@ -37,14 +37,13 @@ const BRAND_COLORS: Record<string, string> = {
   SKECHERS: '#2563EB',
 };
 
-const SizeBadge = ({ size, stock }: { size: string, stock: number }) => (
-  <span 
-    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200/60"
-    title={`Stok: ${stock}`}
-  >
-    {size}
-    <span className="opacity-50 font-normal">({stock})</span>
-  </span>
+const SizeRow = ({ size, stock }: { size: string; stock: number }) => (
+  <div className="flex items-center justify-between gap-3 px-2 py-[3px] rounded hover:bg-amber-50 transition-colors">
+    <span className="font-700 text-slate-700 font-mono tracking-wide text-[10px]">{size}</span>
+    <span className={`font-600 tabular-nums text-[10px] ${stock === 0 ? 'text-red-400' : stock <= 3 ? 'text-amber-600' : 'text-emerald-600'}`}>
+      {stock} pcs
+    </span>
+  </div>
 );
 
 export default function ProductTable({
@@ -248,19 +247,37 @@ export default function ProductTable({
                       <span className="text-xs text-muted-foreground font-500">{product.color || '—'}</span>
                     </td>
 
-                    {/* Ukuran Gabungan */}
+                    {/* Ukuran per baris scrollable */}
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
-                        {product.sizes && product.sizes.length > 0 ? (
-                          product.sizes
-                            .sort((a, b) => parseFloat(a.eu) - parseFloat(b.eu))
-                            .map((sz, idx) => (
-                              <SizeBadge key={`${product.id}-${idx}`} size={sz.eu} stock={sz.stock} />
-                            ))
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </div>
+                      {product.sizes && product.sizes.length > 0 ? (
+                        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white w-[130px]">
+                          {/* Header */}
+                          <div className="grid grid-cols-2 bg-slate-800 text-white text-[9px] font-700 uppercase tracking-wider px-2 py-1">
+                            <span>Size</span>
+                            <span className="text-right">Stok</span>
+                          </div>
+                          {/* Rows scrollable */}
+                          <div className="overflow-y-auto divide-y divide-slate-100" style={{ maxHeight: '100px' }}>
+                            {product.sizes
+                              .sort((a, b) => parseFloat(a.eu) - parseFloat(b.eu))
+                              .map((sz, idx) => (
+                                <div
+                                  key={`${product.id}-sz-${idx}`}
+                                  className={`grid grid-cols-2 px-2 py-1 text-[10px] transition-colors hover:bg-slate-50 ${sz.stock === 0 ? 'opacity-40' : ''}`}
+                                >
+                                  <span className="font-700 font-mono text-slate-800">{sz.eu}</span>
+                                  <span className={`text-right font-600 tabular-nums ${
+                                    sz.stock === 0 ? 'text-red-400' : sz.stock <= 3 ? 'text-amber-600' : 'text-emerald-600'
+                                  }`}>
+                                    {sz.stock} pcs
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                     {/* Stok Terhitung */}
                     <td className="px-4 py-3">

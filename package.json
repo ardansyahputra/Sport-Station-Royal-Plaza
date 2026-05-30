@@ -55,6 +55,7 @@
     "@prisma/client": "^7.8.0",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.16",
+    "@vercel/blob": "^2.4.0",
     "dotenv": "^17.4.2",
     "lucide-react": "^1.16.0",
     "next": "15.1.11",
@@ -66,6 +67,7 @@
     "react-hook-form": "^7.75.0",
     "recharts": "^2.15.2",
     "sonner": "^1.7.4",
+    "swiper": "^12.2.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

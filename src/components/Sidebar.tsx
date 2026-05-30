@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Video,
 } from 'lucide-react';
 import { getStoredSettings } from '@/lib/settingsStorage';
 
@@ -44,6 +45,12 @@ const navItems: NavItem[] = [
     label: 'Pengaturan',
     href: '/admin/pengaturan',
     icon: <Settings size={20} />,
+  },
+  {
+    key: 'nav-content-bank',
+    label: 'Bank Konten',
+    href: '/admin/bank-konten',
+    icon: <Video size={20} />,
   },
 ];
 
