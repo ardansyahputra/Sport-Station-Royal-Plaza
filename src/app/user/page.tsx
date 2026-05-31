@@ -72,8 +72,12 @@ export default function DashboardLandingPage() {
     let matchDiscount = true;
     if (selectedDiscount === 'DISCOUNT') matchDiscount = product.discountPercent > 0;
     else if (selectedDiscount === 'NORMAL') matchDiscount = product.discountPercent === 0;
-    const matchGender = selectedGender === 'ALL' || product.gender === selectedGender;
-    const matchCategory = selectedCategory === 'ALL' || product.category === selectedCategory;
+    // gender disimpan di field "category" (MEN/WOMEN/UNISEX)
+    const rawGender = (product.category || '').toUpperCase();
+    const matchGender = selectedGender === 'ALL' || rawGender === selectedGender;
+    // kategori produk disimpan di field "productType" (FOOTWEAR/APPAREL/ACCESSORIES)
+    const rawType = ((product as any).productType || '').toUpperCase();
+    const matchCategory = selectedCategory === 'ALL' || rawType === selectedCategory;
     return matchBrand && matchDiscount && matchGender && matchCategory;
   });
 
@@ -104,7 +108,7 @@ Saya tertarik dan ingin memesan produk keren ini. Berikut adalah detail pesanan 
 • *Model/Tipe* : ${selectedProductToOrder.modelName}
 • *Kategori* : ${selectedProductToOrder.category}
 • *Warna* : ${selectedProductToOrder.color || '-'}
-• *Ukuran (EU)* : 🔥 *${selectedSize}*
+• *Request Size (EU)* : 🔥 *${selectedSize}*
 • *Total Harga* : *${productPrice}*
 
 ============================
@@ -216,81 +220,66 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
         <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-4 md:p-8">
 
           {/* Header Section */}
-          <div className="mb-6 flex items-end justify-between">
+          <div className="mb-5 flex items-end justify-between">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-600 rounded-full text-[10px] font-bold uppercase tracking-widest mb-3">
                 <span>🔥 Weekly Update</span>
               </div>
               <h3 className="text-2xl font-black text-slate-900 uppercase">Promo Terkini Sport Station</h3>
-              <p className="text-xs text-slate-500 mt-2">Geser untuk lihat video eksklusif kami 👉</p>
+              <p className="text-xs text-slate-500 mt-2">Video eksklusif koleksi terbaru kami</p>
             </div>
-            {/* Navigasi panah custom */}
-            <div className="hidden md:flex items-center gap-2">
-              <button className="swiper-btn-prev-video w-10 h-10 rounded-full bg-slate-100 hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center text-slate-600 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-                </svg>
-              </button>
-              <button className="swiper-btn-next-video w-10 h-10 rounded-full bg-slate-900 hover:bg-orange-500 transition-all flex items-center justify-center text-white shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-                </svg>
-              </button>
+            {/* Badge TikTok */}
+            <a
+              href="https://www.tiktok.com/@sportsstationroyal"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-orange-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-300"
+            >
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+              </svg>
+              @sportsstationroyal
+            </a>
+          </div>
+
+          {/* Video Horizontal Fullwidth */}
+          <div className="relative w-full rounded-2xl overflow-hidden bg-slate-900 shadow-2xl border border-slate-200 group" style={{ aspectRatio: '16/9' }}>
+            <video
+              src={videos[0]}
+              className="w-full h-full object-cover"
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+
+            {/* Badge LIVE */}
+            <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-red-600 text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
+              PROMO VIDEO
+            </div>
+
+            {/* User Tag bawah */}
+            <div className="absolute bottom-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
+              <div className="w-8 h-8 rounded-full bg-orange-500/90 backdrop-blur-md flex items-center justify-center border-2 border-white/30 shadow">
+                <span className="text-[9px] text-white font-black">SS</span>
+              </div>
+              <div>
+                <p className="text-white text-xs font-black drop-shadow">@sportsstationroyal</p>
+                <p className="text-white/70 text-[9px] font-medium drop-shadow">Sport Station Royal Plaza</p>
+              </div>
+            </div>
+
+            {/* Badge kanan bawah */}
+            <div className="absolute bottom-5 right-5 z-10">
+              <span className="bg-orange-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
+                🔥 Weekly Update
+              </span>
             </div>
           </div>
 
-          {/* Swiper Video */}
-          <Swiper
-            modules={[Navigation, Pagination, FreeMode]}
-            spaceBetween={16}
-            slidesPerView={'auto'}
-            freeMode={true}
-            grabCursor={true}
-            navigation={{
-              prevEl: '.swiper-btn-prev-video',
-              nextEl: '.swiper-btn-next-video',
-            }}
-            pagination={{
-              clickable: true,
-              el: '.swiper-video-pagination',
-              bulletClass: 'swiper-video-bullet',
-              bulletActiveClass: 'swiper-video-bullet-active',
-            }}
-            className="!pb-10"
-          >
-            {videos.map((url, i) => (
-              <SwiperSlide key={i} style={{ width: 'auto' }}>
-                <div className="w-[200px] md:w-[230px] h-[370px] rounded-3xl overflow-hidden shadow-2xl border-2 border-slate-200 bg-slate-900 relative group transition-all duration-300 hover:scale-[1.02] hover:ring-4 hover:ring-orange-500/30">
-                  <video
-                    src={url}
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                  {/* Gradient overlay bawah */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
-
-                  {/* Badge nomor */}
-                  <div className="absolute top-3 right-3 z-10 bg-orange-500 text-white text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-widest">
-                    #{i + 1}
-                  </div>
-
-                  {/* User Tag */}
-                  <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 pointer-events-none">
-                    <div className="w-6 h-6 rounded-full bg-orange-500/90 backdrop-blur-md flex items-center justify-center border border-white/30">
-                      <span className="text-[7px] text-white font-black">SS</span>
-                    </div>
-                    <span className="text-white text-[10px] font-bold drop-shadow">@sportsstationroyal</span>
-                  </div>
-                </div>
-              </SwiperSlide>
-            ))}
-
-            {/* Pagination dots */}
-            <div className="swiper-video-pagination mt-4 flex justify-center gap-1.5 [&_.swiper-video-bullet]:w-2 [&_.swiper-video-bullet]:h-2 [&_.swiper-video-bullet]:rounded-full [&_.swiper-video-bullet]:bg-slate-200 [&_.swiper-video-bullet]:inline-block [&_.swiper-video-bullet]:cursor-pointer [&_.swiper-video-bullet-active]:bg-orange-500 [&_.swiper-video-bullet-active]:w-6" />
-          </Swiper>
         </div>
       </section>
 
@@ -397,9 +386,9 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                     className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-slate-700 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 cursor-pointer"
                   >
                     <option value="ALL">Semua Produk</option>
-                    <option value="SHOES">👟 FOOTWEAR</option>
-                    <option value="CLOTHING">👕 APPAREAL</option>
-                    <option value="ACCESSORIES">👜 ACCESORIES</option>
+                    <option value="FOOTWEAR">👟 Footwear</option>
+                    <option value="APPAREL">👕 Apparel</option>
+                    <option value="ACCESSORIES">👜 Accessories</option>
                   </select>
                 </div>
               </div>
@@ -425,7 +414,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
             <div className="text-center py-20 border-2 border-dashed border-slate-100 bg-white rounded-3xl shadow-sm max-w-md mx-auto p-6">
               <p className="text-sm text-slate-400 font-medium">Maaf, tidak ada produk yang cocok dengan kombinasi filter Anda.</p>
               <button
-                onClick={() => { setSelectedBrand('ALL'); setSelectedDiscount('ALL'); setSelectedGender('ALL'); }}
+                onClick={() => { setSelectedBrand('ALL'); setSelectedDiscount('ALL'); setSelectedGender('ALL'); setSelectedCategory('ALL'); }}
                 className="mt-4 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl uppercase tracking-wider hover:bg-orange-500 transition-colors"
               >
                 Reset Filter
@@ -467,11 +456,52 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
 
                     <div className="p-4 flex flex-col flex-1 bg-white">
                       <div className="flex-1 space-y-1.5">
-                        <div className="flex items-center justify-between gap-2 uppercase tracking-wider">
-                          <span className="text-orange-500 font-black text-sm">{product.brand}</span>
-                          <span className="bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded text-[10px]">
-                            {product.category}
-                          </span>
+                        {/* Baris Brand */}
+                        <span className="text-orange-500 font-black text-sm uppercase tracking-wider">{product.brand}</span>
+
+                        {/* Baris Badge: Kategori (productType) + Gender (category) + Article Code */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* Kategori dari productType */}
+                          {(() => {
+                            const pt = ((product as any).productType || '').toUpperCase();
+                            const typeLabel: Record<string, string> = {
+                              FOOTWEAR: '👟 Footwear',
+                              APPAREL:  '👕 Apparel',
+                              ACCESSORIES: '👜 Accessories',
+                            };
+                            const label = typeLabel[pt] || pt;
+                            if (!label) return null;
+                            return (
+                              <span className="bg-slate-100 text-slate-700 font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded border border-slate-200/60">
+                                {label}
+                              </span>
+                            );
+                          })()}
+                          {/* Gender dari category (MEN/WOMEN/UNISEX) */}
+                          {(() => {
+                            const genderUpper = (product.category || '').toUpperCase();
+                            const genderConfig: Record<string, { label: string; bg: string }> = {
+                              MEN:    { label: '♂ MEN',    bg: 'bg-blue-600'   },
+                              MALE:   { label: '♂ MEN',    bg: 'bg-blue-600'   },
+                              WOMEN:  { label: '♀ WOMEN',  bg: 'bg-pink-500'   },
+                              FEMALE: { label: '♀ WOMEN',  bg: 'bg-pink-500'   },
+                              UNISEX: { label: '⚥ UNISEX', bg: 'bg-violet-600' },
+                              KIDS:   { label: '🧒 KIDS',  bg: 'bg-amber-500'  },
+                            };
+                            const cfg = genderConfig[genderUpper];
+                            if (!cfg) return null;
+                            return (
+                              <span className={`${cfg.bg} text-white font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded`}>
+                                {cfg.label}
+                              </span>
+                            );
+                          })()}
+                          {/* Article Code */}
+                          {(product as any).productCode && (
+                            <span className="bg-slate-800 text-slate-300 font-mono font-bold text-[8px] tracking-wider px-2 py-0.5 rounded truncate max-w-[110px]" title={(product as any).productCode}>
+                              #{(product as any).productCode}
+                            </span>
+                          )}
                         </div>
                         <h4 className="text-sm font-bold text-slate-800 line-clamp-1 group-hover:text-orange-500 transition-colors">
                           {product.modelName}
@@ -621,12 +651,33 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                     onError={(e) => e.currentTarget.src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=600&auto=format&fit=crop"}
                   />
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
-                    <span className="text-orange-500">{selectedProductToOrder.brand}</span>
-                    <span>•</span>
-                    <span>{selectedProductToOrder.category}</span>
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-orange-500 font-black text-[9px] uppercase">{selectedProductToOrder.brand}</span>
+                    <span className="text-slate-300 text-[9px]">•</span>
+                    {(() => {
+                      const gender = ((selectedProductToOrder as any).gender || '').toUpperCase();
+                      const genderConfig: Record<string, { label: string; bg: string }> = {
+                        MEN:    { label: '♂ MEN',    bg: 'bg-blue-600' },
+                        MALE:   { label: '♂ MEN',    bg: 'bg-blue-600' },
+                        WOMEN:  { label: '♀ WOMEN',  bg: 'bg-pink-500' },
+                        FEMALE: { label: '♀ WOMEN',  bg: 'bg-pink-500' },
+                        UNISEX: { label: '⚥ UNISEX', bg: 'bg-violet-600' },
+                        KIDS:   { label: '🧒 KIDS',  bg: 'bg-amber-500' },
+                      };
+                      const cfg = genderConfig[gender] || { label: gender || 'UNISEX', bg: 'bg-slate-500' };
+                      return (
+                        <span className={`${cfg.bg} text-white font-extrabold text-[8px] tracking-widest uppercase px-1.5 py-0.5 rounded`}>
+                          {cfg.label}
+                        </span>
+                      );
+                    })()}
                   </div>
+                  {(selectedProductToOrder as any).productCode && (
+                    <p className="text-[9px] font-mono font-bold text-slate-400 tracking-wider">
+                      Art. <span className="text-slate-600">#{(selectedProductToOrder as any).productCode}</span>
+                    </p>
+                  )}
                   <p className="text-xs font-bold text-slate-800 truncate">{selectedProductToOrder.modelName}</p>
                   <p className="text-xs font-extrabold text-slate-900">
                     {selectedProductToOrder.discountPercent > 0
@@ -636,69 +687,55 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                 </div>
               </div>
 
-             {/* 2. PASTE KODE SIZE CHART PICKER DI SINI */}
+             {/* TABEL INFO STOK SIZE */}
   <div className="space-y-2">
-    <div className="flex items-center justify-between">
-      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-        Pilih Ukuran / Size (EU) <span className="text-pink-500">*</span>
-      </label>
-      {selectedSize && (
-        <span className="text-[10px] font-black text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">
-          ✓ {selectedSize}
-        </span>
-      )}
-    </div>
-
-    {/* Header tabel */}
+    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+      Ketersediaan Stok Size (EU)
+    </label>
     <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <div className="grid grid-cols-3 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest">
+      <div className="grid grid-cols-2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest">
         <div className="px-3 py-2 text-center">Size EU</div>
-        <div className="px-3 py-2 text-center border-x border-white/10">Stok</div>
-        <div className="px-3 py-2 text-center">Status</div>
+        <div className="px-3 py-2 text-center border-l border-white/10">Stok Tersedia</div>
       </div>
-
-      {/* Rows scrollable */}
-      <div className="overflow-y-auto max-h-[160px] divide-y divide-slate-100">
-        {selectedProductToOrder.sizes && selectedProductToOrder.sizes.map((sizeEntry) => {
-          const isAvailable = sizeEntry.stock > 0;
-          const isSelected = selectedSize === `${sizeEntry.eu} EU`;
-          return (
-            <div
-              key={sizeEntry.eu}
-              onClick={() => isAvailable && setSelectedSize(`${sizeEntry.eu} EU`)}
-              className={`grid grid-cols-3 text-xs transition-all duration-150 ${
-                isSelected
-                  ? 'bg-orange-500 text-white'
-                  : isAvailable
-                  ? 'hover:bg-orange-50 cursor-pointer'
-                  : 'opacity-35 bg-slate-50 cursor-not-allowed'
-              }`}
-            >
-              <div className={`px-3 py-2.5 text-center font-black ${isSelected ? 'text-white' : 'text-slate-800'}`}>
-                {sizeEntry.eu}
+      <div className="overflow-y-auto max-h-[130px] divide-y divide-slate-100">
+        {selectedProductToOrder.sizes &&
+          selectedProductToOrder.sizes
+            .filter((sizeEntry) => sizeEntry.stock > 0)
+            .sort((a, b) => parseFloat(a.eu) - parseFloat(b.eu))
+            .map((sizeEntry) => (
+              <div key={sizeEntry.eu} className="grid grid-cols-2 text-xs bg-white hover:bg-slate-50 transition-colors">
+                <div className="px-3 py-2 text-center font-black text-slate-800 font-mono">
+                  {sizeEntry.eu}
+                </div>
+                <div className="px-3 py-2 text-center border-l border-slate-100">
+                  <span className="font-bold text-[10px] text-emerald-600">{sizeEntry.stock} pcs</span>
+                </div>
               </div>
-              <div className={`px-3 py-2.5 text-center border-x ${isSelected ? 'border-orange-400' : 'border-slate-100'}`}>
-                <span className={`font-bold text-[10px] ${isSelected ? 'text-white' : isAvailable ? 'text-emerald-600' : 'text-slate-400'}`}>
-                  {sizeEntry.stock} pcs
-                </span>
-              </div>
-              <div className="px-3 py-2.5 text-center">
-                {isSelected ? (
-                  <span className="text-white font-black text-[10px]">✓ Dipilih</span>
-                ) : isAvailable ? (
-                  <span className="text-orange-500 font-bold text-[10px]">Pilih</span>
-                ) : (
-                  <span className="text-slate-300 font-bold text-[10px]">Habis</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+            ))}
+        {(!selectedProductToOrder.sizes || selectedProductToOrder.sizes.every(s => s.stock === 0)) && (
+          <div className="px-3 py-3 text-center text-[10px] font-bold text-pink-500">Semua ukuran habis</div>
+        )}
       </div>
     </div>
-    <p className="text-[10px] text-slate-400 italic">↕ Scroll untuk lihat semua ukuran, klik untuk memilih</p>
+    <p className="text-[10px] text-slate-400 italic">↕ Scroll untuk lihat semua ukuran yang tersedia</p>
   </div>
-  {/* AKHIR KODE SIZE CHART PICKER */}
+
+  {/* REQUEST SIZE — TULIS MANUAL */}
+  <div className="space-y-1.5">
+    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+      Request Size (EU) <span className="text-pink-500">*</span>
+    </label>
+    <input
+      type="text"
+      required
+      placeholder="Contoh: 42, 43, atau 41.5"
+      value={selectedSize}
+      onChange={(e) => setSelectedSize(e.target.value)}
+      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:font-normal placeholder:text-slate-400"
+    />
+    <p className="text-[10px] text-slate-400 italic">Tulis ukuran yang kamu inginkan sesuai tabel stok di atas</p>
+  </div>
+  {/* AKHIR SIZE SECTION */}
 
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nama Lengkap Pemesan <span className="text-pink-500">*</span></label>
@@ -745,11 +782,10 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={!selectedSize}
-                  className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center justify-center gap-2"
                 >
                   <ShoppingBag size={14} />
-                  {selectedSize ? 'Kirim Pesanan Ke WhatsApp' : 'Pilih Size Terlebih Dahulu'}
+                  Kirim Pesanan Ke WhatsApp
                 </button>
               </div>
             </form>
