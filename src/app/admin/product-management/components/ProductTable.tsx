@@ -171,11 +171,20 @@ export default function ProductTable({
                 const rawType = (product as any).productType || 'FOOTWEAR';
                 const displayCategory = rawType.toUpperCase() === 'APPAREL' ? 'Apparel' : 'Footwear';
 
-                // PEMBENARAN 2: Target gender murni dibaca dari category database bawaan
-                const rawGender = product.category || 'UNISEX';
+                // Gender dibaca dari field gender (hasil import Excel), fallback ke category
+                const rawGender = ((product as any).gender || product.category || 'UNISEX').toUpperCase();
                 let displayGender = 'Unisex';
-                if (rawGender.toUpperCase() === 'MEN') displayGender = 'Men';
-                if (rawGender.toUpperCase() === 'WOMEN') displayGender = 'Women';
+                let genderStyle = 'text-violet-700 bg-violet-50 border-violet-200';
+                if (rawGender === 'MEN' || rawGender === 'MALE') {
+                  displayGender = 'Men';
+                  genderStyle = 'text-blue-700 bg-blue-50 border-blue-200';
+                } else if (rawGender === 'WOMEN' || rawGender === 'FEMALE') {
+                  displayGender = 'Women';
+                  genderStyle = 'text-pink-600 bg-pink-50 border-pink-200';
+                } else if (rawGender === 'KIDS') {
+                  displayGender = 'Kids';
+                  genderStyle = 'text-amber-600 bg-amber-50 border-amber-200';
+                }
 
                 return (
                   <tr
@@ -224,7 +233,7 @@ export default function ProductTable({
 
                     {/* Gender */}
                     <td className="px-4 py-3">
-                      <span className="text-xs text-muted-foreground font-500">
+                      <span className={`text-xs font-600 px-2 py-0.5 rounded-full border ${genderStyle}`}>
                         {displayGender}
                       </span>
                     </td>

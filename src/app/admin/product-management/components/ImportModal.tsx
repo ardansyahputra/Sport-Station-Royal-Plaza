@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx';
 import type { Product } from '@/lib/mockData';
 
 // Struktur kolom sesuai template Excel:
-// Article Code | Description | Brand | Category | Color | Size |
+// Article Code | Description | Brand | Gender | ProductType | Color | Size |
 // stock | originalPrice | DiscountPercent | DiscountPrice | imageUrl
 
 type ImportModalProps = {
@@ -28,8 +28,8 @@ type ProductDraft = {
   productCode: string;
   modelName: string;
   brand: string;
-  category: string;
-  productType: string;
+  category: string;   // gender: MEN / WOMEN / UNISEX / KIDS
+  productType: string; // FOOTWEAR / APPAREL / ACCESSORIES
   color: string;
   imageUrl: string;
   originalPrice: number;
@@ -148,12 +148,27 @@ export default function ImportModal({
 
             const brand = getVal(row, ['Brand', 'brand', 'Merek']) || 'Unknown';
 
+            // ✅ FIX UTAMA: Baca kolom "Gender" dari Excel → simpan ke field category
+            // Kolom di Excel bernama "Gender" bukan "Category"
             const category = (
-              getVal(row, ['Category', 'category', 'Kategori']) || 'UNISEX'
+              getVal(row, [
+                'Gender',   // ← kolom utama di Excel kamu
+                'gender',
+                'Category',
+                'category',
+                'Kategori',
+              ]) || 'UNISEX'
             ).toUpperCase();
 
+            // ✅ FIX: Baca kolom "ProductType" dari Excel dengan benar
             const productType = (
-              getVal(row, ['ProductType', 'productType', 'Type']) || 'FOOTWEAR'
+              getVal(row, [
+                'ProductType',
+                'productType',
+                'Product Type',
+                'Type',
+                'type',
+              ]) || 'FOOTWEAR'
             ).toUpperCase();
 
             productMap.set(articleCode, {
@@ -239,7 +254,7 @@ export default function ImportModal({
           `${products.length} produk siap diimpor dari ${jsonData.length} baris data.`
         );
 
-        console.log('[ImportModal] Parsed products:', products);
+        console.log('[ImportModal] Parsed products sample:', products.slice(0, 3));
 
         onImport(products);
         setIsLoading(false);
@@ -260,7 +275,6 @@ export default function ImportModal({
       setIsLoading(false);
     };
 
-    // Wajib pakai readAsArrayBuffer agar XLSX bisa baca .xlsx maupun .csv
     reader.readAsArrayBuffer(file);
   };
 
@@ -340,7 +354,7 @@ export default function ImportModal({
           </p>
         </div>
 
-        {/* Kolom yang dikenali — sesuai template */}
+        {/* Kolom yang dikenali */}
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
           <p className="text-xs font-600 text-slate-600 mb-2">
             Kolom yang dikenali dari template:
@@ -350,7 +364,8 @@ export default function ImportModal({
               'Article Code',
               'Description',
               'Brand',
-              'Category',
+              'Gender',
+              'ProductType',
               'Color',
               'Size',
               'stock',

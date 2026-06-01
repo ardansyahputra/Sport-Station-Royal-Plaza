@@ -72,7 +72,7 @@ export default function DashboardLandingPage() {
     let matchDiscount = true;
     if (selectedDiscount === 'DISCOUNT') matchDiscount = product.discountPercent > 0;
     else if (selectedDiscount === 'NORMAL') matchDiscount = product.discountPercent === 0;
-    // gender disimpan di field "category" (MEN/WOMEN/UNISEX)
+    // gender disimpan di field category (MEN/WOMEN/UNISEX/KIDS) — hasil import Excel kolom Gender
     const rawGender = (product.category || '').toUpperCase();
     const matchGender = selectedGender === 'ALL' || rawGender === selectedGender;
     // kategori produk disimpan di field "productType" (FOOTWEAR/APPAREL/ACCESSORIES)
@@ -166,11 +166,11 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
           <div className="max-w-xl md:max-w-3xl space-y-4 md:space-y-6 animate-[fadeIn_1s_ease-out]">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-semibold uppercase tracking-widest rounded-full w-max">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
-              New Season Premium Gear
+              WEB KATALOG SPORT STATION SURABAYA
             </div>
             <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tight text-white leading-none drop-shadow-lg">
-              SPORT STATION <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">ROYAL</span>
+              SPORT STATION & KIDS STATION<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">ROYAL PLAZA SURABAYA</span>
             </h1>
             <p className="text-slate-200 text-sm md:text-base font-normal max-w-xl leading-relaxed drop-shadow">
               Temukan koleksi perlengkapan & sepatu olahraga original dari brand kelas dunia dengan penawaran terbaik langsung dari genggaman Anda.
@@ -477,9 +477,9 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                               </span>
                             );
                           })()}
-                          {/* Gender dari category (MEN/WOMEN/UNISEX) */}
+                          {/* Badge Gender — dibaca dari product.category (MEN/WOMEN/UNISEX/KIDS) */}
                           {(() => {
-                            const genderUpper = (product.category || '').toUpperCase();
+                            const genderUpper = (product.category || 'UNISEX').toUpperCase();
                             const genderConfig: Record<string, { label: string; bg: string }> = {
                               MEN:    { label: '♂ MEN',    bg: 'bg-blue-600'   },
                               MALE:   { label: '♂ MEN',    bg: 'bg-blue-600'   },
@@ -488,8 +488,8 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                               UNISEX: { label: '⚥ UNISEX', bg: 'bg-violet-600' },
                               KIDS:   { label: '🧒 KIDS',  bg: 'bg-amber-500'  },
                             };
-                            const cfg = genderConfig[genderUpper];
-                            if (!cfg) return null;
+                            // Selalu tampil — fallback ke UNISEX jika tidak dikenali
+                            const cfg = genderConfig[genderUpper] ?? { label: '⚥ UNISEX', bg: 'bg-violet-600' };
                             return (
                               <span className={`${cfg.bg} text-white font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded`}>
                                 {cfg.label}
@@ -656,7 +656,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                     <span className="text-orange-500 font-black text-[9px] uppercase">{selectedProductToOrder.brand}</span>
                     <span className="text-slate-300 text-[9px]">•</span>
                     {(() => {
-                      const gender = ((selectedProductToOrder as any).gender || '').toUpperCase();
+                      const gender = (selectedProductToOrder.category || 'UNISEX').toUpperCase();
                       const genderConfig: Record<string, { label: string; bg: string }> = {
                         MEN:    { label: '♂ MEN',    bg: 'bg-blue-600' },
                         MALE:   { label: '♂ MEN',    bg: 'bg-blue-600' },
