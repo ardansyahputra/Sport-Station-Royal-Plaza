@@ -72,7 +72,7 @@ export default function DashboardLandingPage() {
     let matchDiscount = true;
     if (selectedDiscount === 'DISCOUNT') matchDiscount = product.discountPercent > 0;
     else if (selectedDiscount === 'NORMAL') matchDiscount = product.discountPercent === 0;
-    // gender disimpan di field category (MEN/WOMEN/UNISEX/KIDS) — hasil import Excel kolom Gender
+    // gender disimpan di field "category" (MEN/WOMEN/UNISEX)
     const rawGender = (product.category || '').toUpperCase();
     const matchGender = selectedGender === 'ALL' || rawGender === selectedGender;
     // kategori produk disimpan di field "productType" (FOOTWEAR/APPAREL/ACCESSORIES)
@@ -166,11 +166,11 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
           <div className="max-w-xl md:max-w-3xl space-y-4 md:space-y-6 animate-[fadeIn_1s_ease-out]">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-semibold uppercase tracking-widest rounded-full w-max">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
-              WEB KATALOG SPORT STATION SURABAYA
+              New Season Premium Gear
             </div>
             <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tight text-white leading-none drop-shadow-lg">
-              SPORT STATION & KIDS STATION<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">ROYAL PLAZA SURABAYA</span>
+              SPORT STATION <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">ROYAL</span>
             </h1>
             <p className="text-slate-200 text-sm md:text-base font-normal max-w-xl leading-relaxed drop-shadow">
               Temukan koleksi perlengkapan & sepatu olahraga original dari brand kelas dunia dengan penawaran terbaik langsung dari genggaman Anda.
@@ -461,37 +461,56 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
 
                         {/* Baris Badge: Kategori (productType) + Gender (category) + Article Code */}
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {/* Kategori dari productType */}
+                          {/* Badge Type (RUNNING, CASUAL, dll) */}
                           {(() => {
-                            const pt = ((product as any).productType || '').toUpperCase();
-                            const typeLabel: Record<string, string> = {
-                              FOOTWEAR: '👟 Footwear',
-                              APPAREL:  '👕 Apparel',
-                              ACCESSORIES: '👜 Accessories',
+                            const TYPE_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+                              'RUNNING':          { label: '🏃 Running',        bg: '#DBEAFE', text: '#1D4ED8' },
+                              'CASUAL LACE-UPS':  { label: '👟 Casual Lace-Ups',bg: '#F0FDF4', text: '#15803D' },
+                              'CASUAL BOOTS':     { label: '🥾 Casual Boots',   bg: '#FEF3C7', text: '#B45309' },
+                              'CASUAL SHOES':     { label: '👞 Casual Shoes',   bg: '#FEF9C3', text: '#A16207' },
+                              'SANDAL':           { label: '🩴 Sandal',         bg: '#FFF7ED', text: '#C2410C' },
+                              'SKATE':            { label: '🛹 Skate',          bg: '#F5F3FF', text: '#7C3AED' },
+                              'WALKING':          { label: '🚶 Walking',        bg: '#ECFDF5', text: '#047857' },
+                              'INDOOR / COURT':   { label: '🏸 Indoor/Court',   bg: '#EFF6FF', text: '#2563EB' },
+                              'BASKET BALL':      { label: '🏀 Basketball',     bg: '#FFF7ED', text: '#EA580C' },
+                              'X - TRAININNG':    { label: '💪 Training',       bg: '#FDF2F8', text: '#9D174D' },
+                              'LIFESTYLE':        { label: '✨ Lifestyle',      bg: '#F0FDFA', text: '#0F766E' },
+                              'OUTDOOR':          { label: '⛰️ Outdoor',        bg: '#ECFCCB', text: '#3F6212' },
+                              'SOCCER / FOOTBALL':{ label: '⚽ Soccer',         bg: '#F0FDF4', text: '#166534' },
+                              'TENNIS':           { label: '🎾 Tennis',         bg: '#FFFBEB', text: '#92400E' },
+                              'FOOTWEAR':         { label: '👟 Footwear',       bg: '#F1F5F9', text: '#475569' },
+                              'APPAREL':          { label: '👕 Apparel',        bg: '#F5F3FF', text: '#6D28D9' },
+                              'ACCESSORIES':      { label: '👜 Accessories',    bg: '#FEF3C7', text: '#B45309' },
                             };
-                            const label = typeLabel[pt] || pt;
-                            if (!label) return null;
+                            const typeKey = ((product as any).type || (product as any).productType || '').toUpperCase();
+                            const cfg = TYPE_CONFIG[typeKey] ?? { label: typeKey || 'Footwear', bg: '#F1F5F9', text: '#475569' };
+                            if (!typeKey) return null;
                             return (
-                              <span className="bg-slate-100 text-slate-700 font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded border border-slate-200/60">
-                                {label}
+                              <span
+                                className="font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded"
+                                style={{ backgroundColor: cfg.bg, color: cfg.text }}
+                              >
+                                {cfg.label}
                               </span>
                             );
                           })()}
-                          {/* Badge Gender — dibaca dari product.category (MEN/WOMEN/UNISEX/KIDS) */}
+                          {/* Badge Gender dari product.category */}
                           {(() => {
-                            const genderUpper = (product.category || 'UNISEX').toUpperCase();
-                            const genderConfig: Record<string, { label: string; bg: string }> = {
-                              MEN:    { label: '♂ MEN',    bg: 'bg-blue-600'   },
-                              MALE:   { label: '♂ MEN',    bg: 'bg-blue-600'   },
-                              WOMEN:  { label: '♀ WOMEN',  bg: 'bg-pink-500'   },
-                              FEMALE: { label: '♀ WOMEN',  bg: 'bg-pink-500'   },
-                              UNISEX: { label: '⚥ UNISEX', bg: 'bg-violet-600' },
-                              KIDS:   { label: '🧒 KIDS',  bg: 'bg-amber-500'  },
+                            const GENDER_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+                              'MEN':    { label: '♂ MEN',    bg: '#DBEAFE', text: '#1D4ED8' },
+                              'MALE':   { label: '♂ MEN',    bg: '#DBEAFE', text: '#1D4ED8' },
+                              'WOMEN':  { label: '♀ WOMEN',  bg: '#FCE7F3', text: '#BE185D' },
+                              'FEMALE': { label: '♀ WOMEN',  bg: '#FCE7F3', text: '#BE185D' },
+                              'UNISEX': { label: '⚥ UNISEX', bg: '#EDE9FE', text: '#6D28D9' },
+                              'KIDS':   { label: '🧒 KIDS',  bg: '#FEF3C7', text: '#B45309' },
                             };
-                            // Selalu tampil — fallback ke UNISEX jika tidak dikenali
-                            const cfg = genderConfig[genderUpper] ?? { label: '⚥ UNISEX', bg: 'bg-violet-600' };
+                            const genderKey = (product.category || 'UNISEX').toUpperCase();
+                            const cfg = GENDER_CONFIG[genderKey] ?? GENDER_CONFIG['UNISEX'];
                             return (
-                              <span className={`${cfg.bg} text-white font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded`}>
+                              <span
+                                className="font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded"
+                                style={{ backgroundColor: cfg.bg, color: cfg.text }}
+                              >
                                 {cfg.label}
                               </span>
                             );
@@ -656,7 +675,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                     <span className="text-orange-500 font-black text-[9px] uppercase">{selectedProductToOrder.brand}</span>
                     <span className="text-slate-300 text-[9px]">•</span>
                     {(() => {
-                      const gender = (selectedProductToOrder.category || 'UNISEX').toUpperCase();
+                      const gender = ((selectedProductToOrder as any).gender || '').toUpperCase();
                       const genderConfig: Record<string, { label: string; bg: string }> = {
                         MEN:    { label: '♂ MEN',    bg: 'bg-blue-600' },
                         MALE:   { label: '♂ MEN',    bg: 'bg-blue-600' },

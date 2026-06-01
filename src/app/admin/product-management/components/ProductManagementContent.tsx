@@ -57,45 +57,32 @@ export default function ProductManagementContent() {
   );
 
   /* ---- EXPORT TO XLSX ---- */
-  // Format ekspor: satu baris per size, identik dengan format import Excel asli
-  // sehingga file hasil export bisa langsung di-import ulang tanpa masalah stok
+  // Format: satu baris per size, identik dengan format import Excel asli
   const handleExport = () => {
     const exportData: Record<string, any>[] = [];
 
     for (const p of filtered) {
       const sizes = Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes : [];
 
+      const baseRow = {
+        'Article Code':   p.productCode,
+        'Description':    p.modelName,
+        'Brand':          p.brand,
+        'Gender':         (p.category || 'UNISEX').toUpperCase(),
+        'ProductType':    ((p as any).productType || 'FOOTWEAR').toUpperCase(),
+        'Type':           ((p as any).type || '').toUpperCase(),
+        'Color':          p.color || '',
+        'originalPrice':  p.originalPrice,
+        'DiscountPercent': p.discountPercent,
+        'DiscountPrice':  p.discountedPrice,
+        'imageUrl':       p.imageUrl || '',
+      };
+
       if (sizes.length === 0) {
-        exportData.push({
-          'Article Code': p.productCode,
-          'Description': p.modelName,
-          'Brand': p.brand,
-          'Gender': (p.category || 'UNISEX').toUpperCase(),
-          'ProductType': ((p as any).productType || 'FOOTWEAR').toUpperCase(),
-          'Color': p.color || '',
-          'Size': '',
-          'stock': 0,
-          'originalPrice': p.originalPrice,
-          'DiscountPercent': p.discountPercent,
-          'DiscountPrice': p.discountedPrice,
-          'imageUrl': p.imageUrl || '',
-        });
+        exportData.push({ ...baseRow, 'Size': '', 'stock': 0 });
       } else {
         for (const sz of sizes) {
-          exportData.push({
-            'Article Code': p.productCode,
-            'Description': p.modelName,
-            'Brand': p.brand,
-            'Gender': (p.category || 'UNISEX').toUpperCase(),
-            'ProductType': ((p as any).productType || 'FOOTWEAR').toUpperCase(),
-            'Color': p.color || '',
-            'Size': sz.eu,
-            'stock': sz.stock,
-            'originalPrice': p.originalPrice,
-            'DiscountPercent': p.discountPercent,
-            'DiscountPrice': p.discountedPrice,
-            'imageUrl': p.imageUrl || '',
-          });
+          exportData.push({ ...baseRow, 'Size': sz.eu, 'stock': sz.stock });
         }
       }
     }

@@ -28,8 +28,9 @@ type ProductDraft = {
   productCode: string;
   modelName: string;
   brand: string;
-  category: string;   // gender: MEN / WOMEN / UNISEX / KIDS
+  category: string;    // gender: MEN / WOMEN / UNISEX / KIDS
   productType: string; // FOOTWEAR / APPAREL / ACCESSORIES
+  type: string;        // RUNNING / CASUAL LACE-UPS / SANDAL / dll
   color: string;
   imageUrl: string;
   originalPrice: number;
@@ -160,16 +161,21 @@ export default function ImportModal({
               ]) || 'UNISEX'
             ).toUpperCase();
 
-            // ✅ FIX: Baca kolom "ProductType" dari Excel dengan benar
+            // ProductType: FOOTWEAR / APPAREL / ACCESSORIES
             const productType = (
               getVal(row, [
                 'ProductType',
                 'productType',
                 'Product Type',
-                'Type',
-                'type',
               ]) || 'FOOTWEAR'
             ).toUpperCase();
+
+            // Type: RUNNING / CASUAL LACE-UPS / SANDAL / dll (kolom terpisah)
+            const productSubType = getVal(row, [
+              'Type',
+              'type',
+              'SubType',
+            ]).toUpperCase();
 
             productMap.set(articleCode, {
               productCode: articleCode,
@@ -179,6 +185,7 @@ export default function ImportModal({
               brand,
               category,
               productType,
+              type: productSubType,
               color: getVal(row, ['Color', 'color', 'Warna']) || '-',
               imageUrl: getVal(row, ['imageUrl', 'image_url', 'Gambar']),
               originalPrice,
@@ -228,6 +235,7 @@ export default function ImportModal({
             brand: p.brand,
             category: p.category as Product['category'],
             productType: p.productType as Product['productType'],
+            type: p.type,
             color: p.color,
             imageUrl:
               p.imageUrl ||
@@ -366,6 +374,7 @@ export default function ImportModal({
               'Brand',
               'Gender',
               'ProductType',
+              'Type',
               'Color',
               'Size',
               'stock',

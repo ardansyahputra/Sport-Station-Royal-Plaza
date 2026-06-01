@@ -129,8 +129,8 @@ export default function ProductTable({
                 <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('modelName')}>
                   <div className="flex items-center gap-1">Info Produk {renderSortIcon('modelName')}</div>
                 </th>
-                <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('productType')}>
-                  <div className="flex items-center gap-1">Kategori {renderSortIcon('productType')}</div>
+                <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('type')}>
+                  <div className="flex items-center gap-1">Type {renderSortIcon('type')}</div>
                 </th>
                 <th className="px-4 py-3 text-left font-600 text-muted-foreground cursor-pointer" onClick={() => onSort('category')}>
                   <div className="flex items-center gap-1">Gender {renderSortIcon('category')}</div>
@@ -167,24 +167,41 @@ export default function ProductTable({
 
                 const brandColor = BRAND_COLORS[product.brand] || '#64748b';
 
-                // PEMBENARAN 1: Tipe kategori murni diambil dari productType bawaan parser CSV
-                const rawType = (product as any).productType || 'FOOTWEAR';
-                const displayCategory = rawType.toUpperCase() === 'APPAREL' ? 'Apparel' : 'Footwear';
+                // Type produk (RUNNING, CASUAL LACE-UPS, dll) dari field type
+                const rawType = ((product as any).type || '').toUpperCase();
+                const TYPE_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+                  'RUNNING':         { label: '🏃 Running',        bg: '#DBEAFE', text: '#1D4ED8' },
+                  'CASUAL LACE-UPS': { label: '👟 Casual Lace-Ups',bg: '#F0FDF4', text: '#15803D' },
+                  'CASUAL BOOTS':    { label: '🥾 Casual Boots',   bg: '#FEF3C7', text: '#B45309' },
+                  'CASUAL SHOES':    { label: '👞 Casual Shoes',   bg: '#FEF9C3', text: '#A16207' },
+                  'SANDAL':          { label: '🩴 Sandal',         bg: '#FFF7ED', text: '#C2410C' },
+                  'SKATE':           { label: '🛹 Skate',          bg: '#F5F3FF', text: '#7C3AED' },
+                  'WALKING':         { label: '🚶 Walking',        bg: '#ECFDF5', text: '#047857' },
+                  'INDOOR / COURT':  { label: '🏸 Indoor/Court',   bg: '#EFF6FF', text: '#2563EB' },
+                  'BASKET BALL':     { label: '🏀 Basketball',     bg: '#FFF7ED', text: '#EA580C' },
+                  'X - TRAININNG':   { label: '💪 Training',       bg: '#FDF2F8', text: '#9D174D' },
+                  'LIFESTYLE':       { label: '✨ Lifestyle',      bg: '#F0FDFA', text: '#0F766E' },
+                  'OUTDOOR':         { label: '⛰️ Outdoor',        bg: '#ECFCCB', text: '#3F6212' },
+                  'SOCCER / FOOTBALL':{ label: '⚽ Soccer',        bg: '#F0FDF4', text: '#166534' },
+                  'TENNIS':          { label: '🎾 Tennis',         bg: '#FFFBEB', text: '#92400E' },
+                  'FOOTWEAR':        { label: '👟 Footwear',       bg: '#F1F5F9', text: '#475569' },
+                  'APPAREL':         { label: '👕 Apparel',        bg: '#F5F3FF', text: '#6D28D9' },
+                  'ACCESSORIES':     { label: '👜 Accessories',    bg: '#FEF3C7', text: '#B45309' },
+                };
+                const typeKey = rawType || ((product as any).productType || '').toUpperCase();
+                const typeCfg = TYPE_CONFIG[typeKey] ?? { label: typeKey || 'Footwear', bg: '#F1F5F9', text: '#475569' };
 
-                // Gender dibaca dari field gender (hasil import Excel), fallback ke category
-                const rawGender = ((product as any).gender || product.category || 'UNISEX').toUpperCase();
-                let displayGender = 'Unisex';
-                let genderStyle = 'text-violet-700 bg-violet-50 border-violet-200';
-                if (rawGender === 'MEN' || rawGender === 'MALE') {
-                  displayGender = 'Men';
-                  genderStyle = 'text-blue-700 bg-blue-50 border-blue-200';
-                } else if (rawGender === 'WOMEN' || rawGender === 'FEMALE') {
-                  displayGender = 'Women';
-                  genderStyle = 'text-pink-600 bg-pink-50 border-pink-200';
-                } else if (rawGender === 'KIDS') {
-                  displayGender = 'Kids';
-                  genderStyle = 'text-amber-600 bg-amber-50 border-amber-200';
-                }
+                // Gender dari product.category (MEN/WOMEN/UNISEX/KIDS)
+                const rawGender = (product.category || 'UNISEX').toUpperCase();
+                const GENDER_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+                  'MEN':    { label: '♂ Men',    bg: '#DBEAFE', text: '#1D4ED8' },
+                  'MALE':   { label: '♂ Men',    bg: '#DBEAFE', text: '#1D4ED8' },
+                  'WOMEN':  { label: '♀ Women',  bg: '#FCE7F3', text: '#BE185D' },
+                  'FEMALE': { label: '♀ Women',  bg: '#FCE7F3', text: '#BE185D' },
+                  'UNISEX': { label: '⚥ Unisex', bg: '#EDE9FE', text: '#6D28D9' },
+                  'KIDS':   { label: '🧒 Kids',  bg: '#FEF3C7', text: '#B45309' },
+                };
+                const genderCfg = GENDER_CONFIG[rawGender] ?? { label: '⚥ Unisex', bg: '#EDE9FE', text: '#6D28D9' };
 
                 return (
                   <tr
@@ -224,17 +241,23 @@ export default function ProductTable({
                       </div>
                     </td>
 
-                    {/* Kategori */}
+                    {/* Type */}
                     <td className="px-4 py-3">
-                      <span className="text-xs font-600 text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/50">
-                        {displayCategory}
+                      <span
+                        className="text-[10px] font-700 px-2 py-0.5 rounded-full whitespace-nowrap border"
+                        style={{ backgroundColor: typeCfg.bg, color: typeCfg.text, borderColor: typeCfg.bg }}
+                      >
+                        {typeCfg.label}
                       </span>
                     </td>
 
                     {/* Gender */}
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-600 px-2 py-0.5 rounded-full border ${genderStyle}`}>
-                        {displayGender}
+                      <span
+                        className="text-[10px] font-700 px-2 py-0.5 rounded-full whitespace-nowrap border"
+                        style={{ backgroundColor: genderCfg.bg, color: genderCfg.text, borderColor: genderCfg.bg }}
+                      >
+                        {genderCfg.label}
                       </span>
                     </td>
 
