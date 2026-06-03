@@ -28,9 +28,9 @@ type ProductDraft = {
   productCode: string;
   modelName: string;
   brand: string;
-  category: string;    // gender: MEN / WOMEN / UNISEX / KIDS
+  category: string;   // gender: MEN / WOMEN / UNISEX / KIDS
   productType: string; // FOOTWEAR / APPAREL / ACCESSORIES
-  type: string;        // RUNNING / CASUAL LACE-UPS / SANDAL / dll
+  subType: string;    // RUNNING / CASUAL LACE-UPS / TRAINING / dll
   color: string;
   imageUrl: string;
   originalPrice: number;
@@ -161,7 +161,7 @@ export default function ImportModal({
               ]) || 'UNISEX'
             ).toUpperCase();
 
-            // ProductType: FOOTWEAR / APPAREL / ACCESSORIES
+            // ✅ FIX: Baca kolom "ProductType" dari Excel dengan benar
             const productType = (
               getVal(row, [
                 'ProductType',
@@ -170,12 +170,8 @@ export default function ImportModal({
               ]) || 'FOOTWEAR'
             ).toUpperCase();
 
-            // Type: RUNNING / CASUAL LACE-UPS / SANDAL / dll (kolom terpisah)
-            const productSubType = getVal(row, [
-              'Type',
-              'type',
-              'SubType',
-            ]).toUpperCase();
+            // ✅ Baca kolom "Type" (sub-tipe spesifik: RUNNING, CASUAL LACE-UPS, dll)
+            const subType = getVal(row, ['Type', 'type', 'SubType', 'subType']) || '';
 
             productMap.set(articleCode, {
               productCode: articleCode,
@@ -185,7 +181,7 @@ export default function ImportModal({
               brand,
               category,
               productType,
-              type: productSubType,
+              subType,
               color: getVal(row, ['Color', 'color', 'Warna']) || '-',
               imageUrl: getVal(row, ['imageUrl', 'image_url', 'Gambar']),
               originalPrice,
@@ -235,7 +231,7 @@ export default function ImportModal({
             brand: p.brand,
             category: p.category as Product['category'],
             productType: p.productType as Product['productType'],
-            type: p.type,
+            subType: p.subType,
             color: p.color,
             imageUrl:
               p.imageUrl ||
@@ -374,7 +370,6 @@ export default function ImportModal({
               'Brand',
               'Gender',
               'ProductType',
-              'Type',
               'Color',
               'Size',
               'stock',

@@ -24,9 +24,12 @@ import 'swiper/css/free-mode';
 export default function DashboardLandingPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeOut, setWelcomeOut] = useState(false);
   const [currentYear, setCurrentYear] = useState<number>(2026);
 
   // State Filter
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedBrand, setSelectedBrand] = useState<string>('ALL');
   const [selectedDiscount, setSelectedDiscount] = useState<string>('ALL');
   const [selectedGender, setSelectedGender] = useState<string>('ALL');
@@ -60,6 +63,9 @@ export default function DashboardLandingPage() {
         console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
+        setShowWelcome(true);
+        setTimeout(() => setWelcomeOut(true), 2800);
+        setTimeout(() => setShowWelcome(false), 3400);
       }
     };
     loadAllData();
@@ -72,13 +78,20 @@ export default function DashboardLandingPage() {
     let matchDiscount = true;
     if (selectedDiscount === 'DISCOUNT') matchDiscount = product.discountPercent > 0;
     else if (selectedDiscount === 'NORMAL') matchDiscount = product.discountPercent === 0;
-    // gender disimpan di field "category" (MEN/WOMEN/UNISEX)
+    // gender disimpan di field category (MEN/WOMEN/UNISEX/KIDS) — hasil import Excel kolom Gender
     const rawGender = (product.category || '').toUpperCase();
     const matchGender = selectedGender === 'ALL' || rawGender === selectedGender;
     // kategori produk disimpan di field "productType" (FOOTWEAR/APPAREL/ACCESSORIES)
     const rawType = ((product as any).productType || '').toUpperCase();
     const matchCategory = selectedCategory === 'ALL' || rawType === selectedCategory;
-    return matchBrand && matchDiscount && matchGender && matchCategory;
+    // filter pencarian
+    const q = searchQuery.toLowerCase().trim();
+    const matchSearch = !q ||
+      (product.modelName || '').toLowerCase().includes(q) ||
+      (product.brand || '').toLowerCase().includes(q) ||
+      ((product as any).productCode || '').toLowerCase().includes(q) ||
+      (product.color || '').toLowerCase().includes(q);
+    return matchBrand && matchDiscount && matchGender && matchCategory && matchSearch;
   });
 
   const handleOpenOrderModal = (product: Product) => {
@@ -147,6 +160,94 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
   return (
     <div className="min-h-screen bg-[#fcfcfc] text-slate-800 antialiased font-sans overflow-x-hidden">
 
+      {/* === WELCOME ANIMATION OVERLAY === */}
+      {showWelcome && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-950 pointer-events-none"
+          style={{
+            animation: welcomeOut
+              ? 'welcomeFadeOut 0.6s ease-in forwards'
+              : 'welcomeFadeIn 0.5s ease-out forwards',
+          }}
+        >
+          <style>{`
+            @keyframes welcomeFadeIn {
+              from { opacity: 0; } to { opacity: 1; }
+            }
+            @keyframes welcomeFadeOut {
+              from { opacity: 1; } to { opacity: 0; }
+            }
+            @keyframes logoReveal {
+              0%   { opacity: 0; transform: scale(0.7) translateY(30px); }
+              60%  { opacity: 1; transform: scale(1.05) translateY(-4px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            @keyframes taglineSlide {
+              0%   { opacity: 0; transform: translateY(20px); }
+              100% { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes sparkle {
+              0%, 100% { opacity: 0; transform: scale(0); }
+              50%       { opacity: 1; transform: scale(1); }
+            }
+            @keyframes barGrow {
+              from { width: 0%; }
+              to   { width: 100%; }
+            }
+          `}</style>
+
+          {/* Background radial glow */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_#f97316_0%,_transparent_65%)] opacity-10 pointer-events-none" />
+
+          {/* Sparkle dots */}
+          {[...Array(8)].map((_, i) => (
+            <span
+              key={i}
+              className="absolute w-1.5 h-1.5 rounded-full bg-orange-400"
+              style={{
+                top: `${15 + Math.sin(i * 0.9) * 35}%`,
+                left: `${10 + (i * 11)}%`,
+                animation: `sparkle ${0.6 + i * 0.15}s ease-in-out ${0.4 + i * 0.1}s both`,
+              }}
+            />
+          ))}
+
+          <div className="text-center px-8 space-y-5 relative z-10">
+            {/* Logo / brand block */}
+            <div style={{ animation: 'logoReveal 0.7s cubic-bezier(0.16,1,0.3,1) 0.2s both' }}>
+              <p className="text-orange-500 text-[11px] font-black uppercase tracking-[0.4em] mb-2">
+                ★ Welcome To ★
+              </p>
+              <h1 className="text-white text-3xl sm:text-5xl font-black uppercase tracking-tight leading-none">
+                Sport Station
+              </h1>
+              <h2 className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300 text-xl sm:text-3xl font-black uppercase tracking-widest">
+                Royal Plaza
+              </h2>
+            </div>
+
+            {/* Tagline */}
+            <p
+              className="text-slate-400 text-xs sm:text-sm font-medium tracking-widest"
+              style={{ animation: 'taglineSlide 0.5s ease-out 0.9s both' }}
+            >
+              Katalog Digital · Original Produk · Surabaya
+            </p>
+
+            {/* Progress bar */}
+            <div
+              className="mx-auto w-48 h-0.5 bg-white/10 rounded-full overflow-hidden"
+              style={{ animation: 'taglineSlide 0.4s ease-out 1s both' }}
+            >
+              <div
+                className="h-full bg-gradient-to-r from-orange-500 to-amber-400 rounded-full"
+                style={{ animation: 'barGrow 2s ease-out 0.3s both' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- HERO BANNER SECTION --- */}
       <section className="relative w-full h-[60vh] md:h-[80vh] bg-slate-950 flex items-center justify-center overflow-hidden">
         <video
@@ -166,11 +267,11 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
           <div className="max-w-xl md:max-w-3xl space-y-4 md:space-y-6 animate-[fadeIn_1s_ease-out]">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-semibold uppercase tracking-widest rounded-full w-max">
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
-              New Season Premium Gear
+              WEB KATALOG SPORT STATION SURABAYA
             </div>
             <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tight text-white leading-none drop-shadow-lg">
-              SPORT STATION <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">ROYAL</span>
+              SPORT STATION & KIDS STATION<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">ROYAL PLAZA SURABAYA</span>
             </h1>
             <p className="text-slate-200 text-sm md:text-base font-normal max-w-xl leading-relaxed drop-shadow">
               Temukan koleksi perlengkapan & sepatu olahraga original dari brand kelas dunia dengan penawaran terbaik langsung dari genggaman Anda.
@@ -215,73 +316,79 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
         <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#fcfcfc] to-transparent z-10"></div>
       </section>
 
+      
+
       {/* --- WEEKLY PROMO SECTION --- */}
-      <section className="relative z-20 max-w-6xl mx-auto px-4 mt-12">
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-4 md:p-8">
+<section className="relative z-20 max-w-6xl mx-auto px-4 mt-12">
+  <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-4 md:p-8">
 
-          {/* Header Section */}
-          <div className="mb-5 flex items-end justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-600 rounded-full text-[10px] font-bold uppercase tracking-widest mb-3">
-                <span>🔥 Weekly Update</span>
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 uppercase">Promo Terkini Sport Station</h3>
-              <p className="text-xs text-slate-500 mt-2">Video eksklusif koleksi terbaru kami</p>
-            </div>
-            {/* Badge TikTok */}
-            <a
-              href="https://www.tiktok.com/@sportsstationroyal"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-orange-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-300"
-            >
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
-              </svg>
-              @sportsstationroyal
-            </a>
-          </div>
-
-          {/* Video Horizontal Fullwidth */}
-          <div className="relative w-full rounded-2xl overflow-hidden bg-slate-900 shadow-2xl border border-slate-200 group" style={{ aspectRatio: '16/9' }}>
-            <video
-              src={videos[0]}
-              className="w-full h-full object-cover"
-              autoPlay
-              loop
-              muted
-              playsInline
-            />
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-
-            {/* Badge LIVE */}
-            <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-red-600 text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-lg">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
-              PROMO VIDEO
-            </div>
-
-            {/* User Tag bawah */}
-            <div className="absolute bottom-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
-              <div className="w-8 h-8 rounded-full bg-orange-500/90 backdrop-blur-md flex items-center justify-center border-2 border-white/30 shadow">
-                <span className="text-[9px] text-white font-black">SS</span>
-              </div>
-              <div>
-                <p className="text-white text-xs font-black drop-shadow">@sportsstationroyal</p>
-                <p className="text-white/70 text-[9px] font-medium drop-shadow">Sport Station Royal Plaza</p>
-              </div>
-            </div>
-
-            {/* Badge kanan bawah */}
-            <div className="absolute bottom-5 right-5 z-10">
-              <span className="bg-orange-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-                🔥 Weekly Update
-              </span>
-            </div>
-          </div>
-
+    {/* Header Section */}
+    <div className="mb-8 flex items-end justify-between">
+      <div>
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-600 rounded-full text-[10px] font-bold uppercase tracking-widest mb-3">
+          <span>🔥 Weekly Update</span>
         </div>
-      </section>
+        <h3 className="text-2xl font-black text-slate-900 uppercase">Promo Terkini Sport Station</h3>
+        <p className="text-xs text-slate-500 mt-2">Video eksklusif koleksi terbaru kami</p>
+      </div>
+      
+      {/* Badge TikTok */}
+      <a
+        href="https://www.tiktok.com/@sportsstationroyal"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-orange-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-300"
+      >
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+        </svg>
+        @sportsstationroyal
+      </a>
+    </div>
+
+    {/* Video Portrait Container - Presisi 9:16 */}
+    <div className="flex justify-center w-full">
+      <div className="relative w-full max-w-[320px] aspect-[9/16] rounded-2xl overflow-hidden bg-slate-900 shadow-2xl border border-slate-200 group">
+        <video
+          src={videos[0]}
+          className="absolute inset-0 w-full h-full object-cover"
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+        
+        {/* Gradient overlay agar badge terbaca */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+
+        {/* Badge LIVE */}
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-red-600 text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-lg">
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
+          PROMO VIDEO
+        </div>
+
+        {/* User Tag bawah */}
+        <div className="absolute bottom-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
+          <div className="w-8 h-8 rounded-full bg-orange-500/90 backdrop-blur-md flex items-center justify-center border-2 border-white/30 shadow">
+            <span className="text-[9px] text-white font-black">SS</span>
+          </div>
+          <div>
+            <p className="text-white text-xs font-black drop-shadow">@sportsstationroyal</p>
+            <p className="text-white/70 text-[9px] font-medium drop-shadow">Sport Station Royal Plaza</p>
+          </div>
+        </div>
+
+        {/* Badge kanan bawah */}
+        <div className="absolute bottom-5 right-5 z-10">
+          <span className="bg-orange-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
+            🔥 Weekly Update
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
 
       {/* --- FEATURES INFO SECTION --- */}
       <section className="relative z-20 mt-8 max-w-6xl mx-auto px-4">
@@ -326,6 +433,127 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
         </div>
       </section>
 
+      {/* === CNB GROUP SECTION === */}
+      <section className="relative z-20 mt-8 max-w-6xl mx-auto px-4">
+        <style>{`
+          @keyframes cnbPulseRing {
+            0%   { transform: scale(1);   opacity: 0.7; }
+            70%  { transform: scale(1.5); opacity: 0; }
+            100% { transform: scale(1.5); opacity: 0; }
+          }
+          @keyframes cnbFloat {
+            0%, 100% { transform: translateY(0px); }
+            50%       { transform: translateY(-6px); }
+          }
+          @keyframes cnbShimmer {
+            0%   { background-position: -200% center; }
+            100% { background-position: 200% center; }
+          }
+          @keyframes cnbArrow {
+            0%, 100% { transform: translateX(0); opacity: 1; }
+            50%       { transform: translateX(5px); opacity: 0.6; }
+          }
+        `}</style>
+
+        <div
+          className="relative overflow-hidden rounded-3xl border border-orange-200 shadow-xl shadow-orange-100/60"
+          style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}
+        >
+          {/* Decorative glowing orbs */}
+          <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full bg-orange-500/20 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-10 -right-10 w-64 h-64 rounded-full bg-amber-400/10 blur-3xl pointer-events-none" />
+
+          {/* Subtle grid pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.04] pointer-events-none"
+            style={{
+              backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
+              backgroundSize: '40px 40px',
+            }}
+          />
+
+          <div className="relative z-10 p-6 sm:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
+
+            {/* Left: Icon + badge */}
+            <div className="flex-shrink-0 relative" style={{ animation: 'cnbFloat 3s ease-in-out infinite' }}>
+              {/* Pulse rings */}
+              <span className="absolute inset-0 rounded-full bg-orange-500/40"
+                style={{ animation: 'cnbPulseRing 2s ease-out infinite' }} />
+              <span className="absolute inset-0 rounded-full bg-orange-500/30"
+                style={{ animation: 'cnbPulseRing 2s ease-out 0.6s infinite' }} />
+
+              <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-2xl shadow-orange-500/40">
+                <svg viewBox="0 0 24 24" className="w-10 h-10 fill-white" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17 12c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm1 7.5h-2v-2h2v2zm0-4h-2V13h2v2.5zM11.93 12.02C11.04 10.2 9.16 9 7 9c-3.31 0-6 2.69-6 6s2.69 6 6 6c1.79 0 3.39-.75 4.54-1.95C10.59 17.85 10 16.49 10 15c0-1.09.28-2.12.76-3.02l1.17.02zM7 19c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zM21 5V3H3v2h8v2H3v2h8.1c.9-1.21 2.21-2.09 3.73-2.38C15.56 6.24 16.26 6 17 6c1.38 0 2.63.56 3.54 1.46L21 7V5z"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* Center: Text content */}
+            <div className="flex-1 text-center md:text-left space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-500/15 border border-orange-500/30 text-orange-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping inline-block" />
+                Komunitas Resmi
+              </div>
+
+              <h3 className="text-white text-xl sm:text-3xl font-black uppercase tracking-tight leading-tight">
+                Gabung Grup{' '}
+                <span
+                  className="text-transparent"
+                  style={{
+                    backgroundImage: 'linear-gradient(90deg, #f97316, #fbbf24, #f97316)',
+                    backgroundSize: '200% auto',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    animation: 'cnbShimmer 2.5s linear infinite',
+                  }}
+                >
+                  CNB
+                </span>
+              </h3>
+
+              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-md">
+                Mau dapet info promo eksklusif, flash sale, dan update produk terbaru duluan?
+                Yuk, masuk ke grup komunitas <span className="text-white font-bold">CNB</span> — gratis dan langsung terhubung ke tim kami! 🔥
+              </p>
+
+              {/* Tags */}
+              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                {['🔥 Flash Sale Duluan', '📦 Info Stok Baru', '🎁 Promo Eksklusif', '💬 Tanya Admin'].map((tag) => (
+                  <span key={tag} className="px-2.5 py-1 bg-white/5 border border-white/10 text-white/60 text-[10px] font-medium rounded-full">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: CTA Button */}
+            <div className="flex-shrink-0 text-center">
+              <a
+                href="https://chat.whatsapp.com/GANTI_LINK_CNB_DISINI"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative inline-flex flex-col items-center gap-1"
+              >
+                {/* Outer pulse glow on hover */}
+                <span className="absolute -inset-1 rounded-2xl bg-orange-500/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                <span className="relative inline-flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-600 hover:to-amber-500 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-2xl shadow-orange-500/40 transition-all duration-300 transform group-hover:-translate-y-1 group-hover:shadow-orange-500/60">
+                  {/* WhatsApp icon */}
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                  Klik Di Sini
+                  <span style={{ animation: 'cnbArrow 1s ease-in-out infinite' }}>→</span>
+                </span>
+                <span className="text-slate-500 text-[10px] font-medium mt-1">Masuk Grup WhatsApp CNB</span>
+              </a>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
       {/* --- MAIN CONTENT AREA --- */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 space-y-12">
 
@@ -345,6 +573,26 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full xl:w-auto xl:flex xl:items-center">
+              {/* Search Bar */}
+              <div className="space-y-1.5 min-w-[200px]">
+                <label className="block font-bold text-slate-400 uppercase tracking-wider text-[10px]">Cari Produk</label>
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" /></svg>
+                  <input
+                    type="text"
+                    placeholder="Nama model, brand, kode..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 pl-8 pr-3 py-2.5 rounded-xl text-slate-700 font-semibold text-xs focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:font-normal placeholder:text-slate-400"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Filter Brand */}
               <div className="space-y-1.5 min-w-[180px]">
                 <label className="block font-bold text-slate-400 uppercase tracking-wider text-[10px]">Brand Eksklusif</label>
@@ -414,7 +662,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
             <div className="text-center py-20 border-2 border-dashed border-slate-100 bg-white rounded-3xl shadow-sm max-w-md mx-auto p-6">
               <p className="text-sm text-slate-400 font-medium">Maaf, tidak ada produk yang cocok dengan kombinasi filter Anda.</p>
               <button
-                onClick={() => { setSelectedBrand('ALL'); setSelectedDiscount('ALL'); setSelectedGender('ALL'); setSelectedCategory('ALL'); }}
+                onClick={() => { setSelectedBrand('ALL'); setSelectedDiscount('ALL'); setSelectedGender('ALL'); setSelectedCategory('ALL'); setSearchQuery(''); }}
                 className="mt-4 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl uppercase tracking-wider hover:bg-orange-500 transition-colors"
               >
                 Reset Filter
@@ -433,8 +681,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                     key={product.id}
                     className="group relative flex flex-col bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md"
                   >
-                    <div className="relative aspect-square bg-slate-50/50 w-full overflow-hidden flex items-center justify-center p-4">
-                      <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1">
+                        <div className="relative aspect-[9/16] bg-slate-50/50 w-full overflow-hidden flex items-center justify-center p-4">                      <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1">
                         {hasDiscount && (
                           <span className="bg-pink-600 text-white font-extrabold text-xs tracking-wider uppercase px-2 py-1 rounded shadow-sm">
                             -{product.discountPercent}%
@@ -461,60 +708,67 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
 
                         {/* Baris Badge: Kategori (productType) + Gender (category) + Article Code */}
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {/* Badge Type (RUNNING, CASUAL, dll) */}
+                          {/* Kategori dari productType */}
                           {(() => {
-                            const TYPE_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-                              'RUNNING':          { label: '🏃 Running',        bg: '#DBEAFE', text: '#1D4ED8' },
-                              'CASUAL LACE-UPS':  { label: '👟 Casual Lace-Ups',bg: '#F0FDF4', text: '#15803D' },
-                              'CASUAL BOOTS':     { label: '🥾 Casual Boots',   bg: '#FEF3C7', text: '#B45309' },
-                              'CASUAL SHOES':     { label: '👞 Casual Shoes',   bg: '#FEF9C3', text: '#A16207' },
-                              'SANDAL':           { label: '🩴 Sandal',         bg: '#FFF7ED', text: '#C2410C' },
-                              'SKATE':            { label: '🛹 Skate',          bg: '#F5F3FF', text: '#7C3AED' },
-                              'WALKING':          { label: '🚶 Walking',        bg: '#ECFDF5', text: '#047857' },
-                              'INDOOR / COURT':   { label: '🏸 Indoor/Court',   bg: '#EFF6FF', text: '#2563EB' },
-                              'BASKET BALL':      { label: '🏀 Basketball',     bg: '#FFF7ED', text: '#EA580C' },
-                              'X - TRAININNG':    { label: '💪 Training',       bg: '#FDF2F8', text: '#9D174D' },
-                              'LIFESTYLE':        { label: '✨ Lifestyle',      bg: '#F0FDFA', text: '#0F766E' },
-                              'OUTDOOR':          { label: '⛰️ Outdoor',        bg: '#ECFCCB', text: '#3F6212' },
-                              'SOCCER / FOOTBALL':{ label: '⚽ Soccer',         bg: '#F0FDF4', text: '#166534' },
-                              'TENNIS':           { label: '🎾 Tennis',         bg: '#FFFBEB', text: '#92400E' },
-                              'FOOTWEAR':         { label: '👟 Footwear',       bg: '#F1F5F9', text: '#475569' },
-                              'APPAREL':          { label: '👕 Apparel',        bg: '#F5F3FF', text: '#6D28D9' },
-                              'ACCESSORIES':      { label: '👜 Accessories',    bg: '#FEF3C7', text: '#B45309' },
+                            const pt = ((product as any).productType || '').toUpperCase();
+                            const typeLabel: Record<string, string> = {
+                              FOOTWEAR: '👟 Footwear',
+                              APPAREL:  '👕 Apparel',
+                              ACCESSORIES: '👜 Accessories',
                             };
-                            const typeKey = ((product as any).type || (product as any).productType || '').toUpperCase();
-                            const cfg = TYPE_CONFIG[typeKey] ?? { label: typeKey || 'Footwear', bg: '#F1F5F9', text: '#475569' };
-                            if (!typeKey) return null;
+                            const label = typeLabel[pt] || pt;
+                            if (!label) return null;
                             return (
-                              <span
-                                className="font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded"
-                                style={{ backgroundColor: cfg.bg, color: cfg.text }}
-                              >
+                              <span className="bg-slate-100 text-slate-700 font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded border border-slate-200/60">
+                                {label}
+                              </span>
+                            );
+                          })()}
+                          {/* Badge Gender — dibaca dari product.category (MEN/WOMEN/UNISEX/KIDS) */}
+                          {(() => {
+                            const genderUpper = (product.category || 'UNISEX').toUpperCase();
+                            const genderConfig: Record<string, { label: string; bg: string }> = {
+                              MEN:    { label: '♂ MEN',    bg: 'bg-blue-600'   },
+                              MALE:   { label: '♂ MEN',    bg: 'bg-blue-600'   },
+                              WOMEN:  { label: '♀ WOMEN',  bg: 'bg-pink-500'   },
+                              FEMALE: { label: '♀ WOMEN',  bg: 'bg-pink-500'   },
+                              UNISEX: { label: '⚥ UNISEX', bg: 'bg-violet-600' },
+                              KIDS:   { label: '🧒 KIDS',  bg: 'bg-amber-500'  },
+                            };
+                            // Selalu tampil — fallback ke UNISEX jika tidak dikenali
+                            const cfg = genderConfig[genderUpper] ?? { label: '⚥ UNISEX', bg: 'bg-violet-600' };
+                            return (
+                              <span className={`${cfg.bg} text-white font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded`}>
                                 {cfg.label}
                               </span>
                             );
                           })()}
-                          {/* Badge Gender dari product.category */}
-                          {(() => {
-                            const GENDER_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-                              'MEN':    { label: '♂ MEN',    bg: '#DBEAFE', text: '#1D4ED8' },
-                              'MALE':   { label: '♂ MEN',    bg: '#DBEAFE', text: '#1D4ED8' },
-                              'WOMEN':  { label: '♀ WOMEN',  bg: '#FCE7F3', text: '#BE185D' },
-                              'FEMALE': { label: '♀ WOMEN',  bg: '#FCE7F3', text: '#BE185D' },
-                              'UNISEX': { label: '⚥ UNISEX', bg: '#EDE9FE', text: '#6D28D9' },
-                              'KIDS':   { label: '🧒 KIDS',  bg: '#FEF3C7', text: '#B45309' },
-                            };
-                            const genderKey = (product.category || 'UNISEX').toUpperCase();
-                            const cfg = GENDER_CONFIG[genderKey] ?? GENDER_CONFIG['UNISEX'];
-                            return (
-                              <span
-                                className="font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded"
-                                style={{ backgroundColor: cfg.bg, color: cfg.text }}
-                              >
-                                {cfg.label}
-                              </span>
-                            );
-                          })()}
+
+                          {/* Badge subType dengan warna dinamis */}
+                            {(product as any).subType && (() => {
+                              const subType = (product as any).subType.toUpperCase();
+                              
+                              // Konfigurasi warna untuk setiap tipe
+                              const colorMap: Record<string, string> = {
+                                RUNNING: 'bg-orange-500',
+                                CASUAL:  'bg-emerald-600',
+                                TRAINING: 'bg-blue-600',
+                                LIFESTYLE: 'bg-purple-600',
+                                BASKETBALL: 'bg-red-600',
+                                // Tambahkan tipe lain jika ada
+                              };
+
+                              // Warna default jika tipe tidak ada di list
+                              const bgColor = colorMap[subType] || 'bg-slate-700';
+
+                              return (
+                                <span className={`${bgColor} text-white font-extrabold text-[8px] tracking-widest uppercase px-2 py-0.5 rounded border border-white/10`}>
+                                  {subType}
+                                </span>
+                              );
+                            })()}
+
+
                           {/* Article Code */}
                           {(product as any).productCode && (
                             <span className="bg-slate-800 text-slate-300 font-mono font-bold text-[8px] tracking-wider px-2 py-0.5 rounded truncate max-w-[110px]" title={(product as any).productCode}>
@@ -675,7 +929,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                     <span className="text-orange-500 font-black text-[9px] uppercase">{selectedProductToOrder.brand}</span>
                     <span className="text-slate-300 text-[9px]">•</span>
                     {(() => {
-                      const gender = ((selectedProductToOrder as any).gender || '').toUpperCase();
+                      const gender = (selectedProductToOrder.category || 'UNISEX').toUpperCase();
                       const genderConfig: Record<string, { label: string; bg: string }> = {
                         MEN:    { label: '♂ MEN',    bg: 'bg-blue-600' },
                         MALE:   { label: '♂ MEN',    bg: 'bg-blue-600' },
@@ -713,7 +967,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
     </label>
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <div className="grid grid-cols-2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest">
-        <div className="px-3 py-2 text-center">Size EU</div>
+        <div className="px-3 py-2 text-center">Size EU / CM (Centi Meter)</div>
         <div className="px-3 py-2 text-center border-l border-white/10">Stok Tersedia</div>
       </div>
       <div className="overflow-y-auto max-h-[130px] divide-y divide-slate-100">
@@ -742,7 +996,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
   {/* REQUEST SIZE — TULIS MANUAL */}
   <div className="space-y-1.5">
     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-      Request Size (EU) <span className="text-pink-500">*</span>
+      Request Size (EU) / CM (Centi Meter) <span className="text-pink-500">*</span>
     </label>
     <input
       type="text"
