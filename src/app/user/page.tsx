@@ -219,7 +219,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                 ★ Welcome To ★
               </p>
               <h1 className="text-white text-3xl sm:text-5xl font-black uppercase tracking-tight leading-none">
-                Sport Station
+                Sport Station & Kids Station
               </h1>
               <h2 className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300 text-xl sm:text-3xl font-black uppercase tracking-widest">
                 Royal Plaza

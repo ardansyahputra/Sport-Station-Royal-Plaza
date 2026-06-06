@@ -12,6 +12,7 @@ import {
   ChevronRight,
   LogOut,
   Video,
+  Package2,
 } from 'lucide-react';
 import { getStoredSettings } from '@/lib/settingsStorage';
 
@@ -40,6 +41,14 @@ const navItems: NavItem[] = [
     href: '/admin/product-management',
     icon: <Package size={20} />,
   },
+  
+    {
+    key: 'nav-products',
+    label: 'Kids Station',
+    href: '/admin/kids-station',
+    icon: <Package2 size={20} />,
+  },
+
   {
     key: 'nav-settings',
     label: 'Pengaturan',
@@ -52,6 +61,7 @@ const navItems: NavItem[] = [
     href: '/admin/bank-konten',
     icon: <Video size={20} />,
   },
+  
 ];
 
 export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
