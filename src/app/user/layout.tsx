@@ -17,7 +17,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'SportAdmin — Sport Station Royal Plaza',
+  title: 'Katalog Sport Station Royal Plaza',
   description:
     'Admin tool untuk manajemen katalog footwear diskon Sport Station Royal Plaza — stok, harga, dan produk dalam satu dashboard.',
   icons: {

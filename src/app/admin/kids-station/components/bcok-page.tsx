@@ -1,12 +1,12 @@
 import React from 'react';
 import AppLayout from '@/components/AppLayout';
-import BCOKProductManagementContent from './components/BCOKProductManagementContent';
+import BCOKProductManagementContent from './BCOKProductManagementContent';
 
-export default function BCOKProductManagementPage() {
+export default function BCOKAdminPage() {
   return (
     <AppLayout
-      pageTitle="Manajemen Produk"
-      pageSubtitle="Katalog BCOK / Kids Station — Semua Kategori"
+      pageTitle="Manajemen Produk BCOK"
+      pageSubtitle="Katalog Kids Station — Admin Panel"
     >
       <BCOKProductManagementContent />
     </AppLayout>

@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
   },
   
     {
-    key: 'nav-products',
+    key: 'nav-bcok',
     label: 'Kids Station',
     href: '/admin/kids-station',
     icon: <Package2 size={20} />,

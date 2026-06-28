@@ -43,18 +43,20 @@ export default function BCOKProductManagementContent() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [tableKey, setTableKey] = useState(0);
 
-  /* ===== LOAD ===== */
+  /* ===== LOAD — sama persis pola Sport Station ===== */
   useEffect(() => {
-    (async () => {
+    const load = async () => {
       try {
         const data = await getStoredBCOKProducts();
         setProducts(data);
-      } catch {
-        toast.error('Gagal memuat data produk.');
+      } catch (err) {
+        console.error('Gagal mengambil data BCOK:', err);
+        toast.error('Gagal memuat data produk BCOK.');
       } finally {
         setIsLoaded(true);
       }
-    })();
+    };
+    load();
   }, []);
 
   const lowStockProductIds = useMemo(() => computeLowStockAlerts(products), [products]);
@@ -119,18 +121,25 @@ export default function BCOKProductManagementContent() {
 
   useEffect(() => { setCurrentPage(1); }, [search, filterBrand, filterCategory, filterDiscount, filterStock]);
 
-  /* ===== IMPORT ===== */
+  /* ===== IMPORT — sama persis pola Sport Station ===== */
   const handleImport = async (incoming: BCOKProduct[]) => {
-    if (!incoming.length) { toast.error('Tidak ada produk yang berhasil dibaca.'); return; }
+    if (!Array.isArray(incoming) || incoming.length === 0) {
+      toast.error('Tidak ada produk yang berhasil dibaca dari file.');
+      return;
+    }
     const map = new Map(products.map((p) => [p.productCode, p]));
     incoming.forEach((p) => map.set(p.productCode, p));
     const merged = Array.from(map.values());
     setProducts(merged);
     setSelectedIds(new Set());
     setTableKey((k) => k + 1);
-    toast.success(`${incoming.length} produk berhasil diimpor / diperbarui.`);
-    try { await saveStoredBCOKProducts(merged); }
-    catch { toast.error('Gagal menyimpan ke database.'); }
+    toast.success(`Berhasil menambahkan/memperbarui ${incoming.length} produk.`);
+    try {
+      await saveStoredBCOKProducts(merged);
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal menyimpan hasil import ke database.');
+    }
   };
 
   /* ===== SAVE (add/edit) ===== */
@@ -142,7 +151,12 @@ export default function BCOKProductManagementContent() {
     setFormModalOpen(false);
     setEditingProduct(null);
     toast.success(editingProduct ? 'Produk berhasil diperbarui.' : 'Produk baru berhasil ditambahkan.');
-    await saveStoredBCOKProducts(next);
+    try {
+      await saveStoredBCOKProducts(next);
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal menyimpan ke database.');
+    }
   };
 
   /* ===== DELETE ===== */
@@ -154,7 +168,12 @@ export default function BCOKProductManagementContent() {
     setDeleteTarget(null);
     setDeleteLoading(false);
     toast.success('Produk berhasil dihapus.');
-    await saveStoredBCOKProducts(next);
+    try {
+      await saveStoredBCOKProducts(next);
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal menghapus dari database.');
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -166,7 +185,12 @@ export default function BCOKProductManagementContent() {
     setBulkDeleteOpen(false);
     setDeleteLoading(false);
     toast.success(`${count} produk berhasil dihapus massal.`);
-    await saveStoredBCOKProducts(next);
+    try {
+      await saveStoredBCOKProducts(next);
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal menyimpan ke database.');
+    }
   };
 
   const handleDeleteAll = async () => {
@@ -175,8 +199,13 @@ export default function BCOKProductManagementContent() {
     setSelectedIds(new Set());
     setDeleteAllOpen(false);
     setDeleteLoading(false);
-    toast.success('Seluruh data produk berhasil dihapus.');
-    await saveStoredBCOKProducts([]);
+    toast.success('Seluruh data produk BCOK berhasil dihapus.');
+    try {
+      await saveStoredBCOKProducts([]);
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal menghapus dari database.');
+    }
   };
 
   /* ===== LOADING STATE ===== */
@@ -304,7 +333,7 @@ export default function BCOKProductManagementContent() {
         onClose={() => setDeleteAllOpen(false)}
         onConfirm={handleDeleteAll}
         title="Hapus Semua Data"
-        message="Tindakan ini akan menghapus seluruh data produk secara permanen. Lanjutkan?"
+        message="Tindakan ini akan menghapus seluruh data produk BCOK secara permanen. Lanjutkan?"
         confirmLabel="Ya, Hapus Semua"
         isDestructive
         isLoading={deleteLoading}
