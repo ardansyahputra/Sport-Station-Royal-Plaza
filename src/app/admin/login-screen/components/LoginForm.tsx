@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, ShieldCheck, Copy, Check, AlertCircle, Package } from 'lucide-react';
 import AppLogo from '@/components/ui/AppLogo';
-import { getStoredSettings } from '@/lib/settingsStorage';
 
 type LoginFormData = {
   username: string;
@@ -20,23 +19,6 @@ export default function LoginForm() {
   const [authError, setAuthError] = useState('');
   const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null);
 
-  const [credentials, setCredentials] = useState({
-    email: '',
-    password: '',
-  });
-
-  useEffect(() => {
-    const load = async () => {
-      const data = await getStoredSettings();
-
-      setCredentials({
-        email: data.email,
-        password: data.password,
-      });
-    };
-
-    load();
-  }, []);
 
   const {
     register,
@@ -47,19 +29,34 @@ export default function LoginForm() {
     defaultValues: { username: '', password: '', rememberMe: false },
   });
 
-  // Backend integration point: replace with real auth API call
+  // Login via API — kredensial divalidasi di server terhadap data Settings yang sama,
+  // dan server yang men-set cookie `token` supaya middleware.ts mengenali sesi login
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setAuthError('');
 
-    await new Promise((resolve) => setTimeout(resolve, 900));
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: data.username,
+          password: data.password,
+        }),
+      });
 
-    if (data.username === credentials.email && data.password === credentials.password) {
-      router.push('/admin/dashboard');
-    } else {
-      console.log(credentials);
-      setAuthError('Kredensial tidak valid');
+      const result = await res.json();
 
+      if (res.ok && result.success) {
+        router.push('/admin/dashboard');
+        router.refresh();
+      } else {
+        setAuthError(result.message || 'Kredensial tidak valid');
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setAuthError('Terjadi kesalahan, coba lagi');
       setIsLoading(false);
     }
   };

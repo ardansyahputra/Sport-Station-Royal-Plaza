@@ -37,15 +37,15 @@ const navItems: NavItem[] = [
   },
   {
     key: 'nav-products',
-    label: 'Manajemen Produk',
+    label: 'Manajemen Produk Reguler',
     href: '/admin/product-management',
     icon: <Package size={20} />,
   },
   
     {
-    key: 'nav-bcok',
-    label: 'Kids Station',
-    href: '/admin/kids-station',
+    key: 'nav-clearences',
+    label: 'Last Call 70%',
+    href: '/admin/stok-lastcall',
     icon: <Package2 size={20} />,
   },
 

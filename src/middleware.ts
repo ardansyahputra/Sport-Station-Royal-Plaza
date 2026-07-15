@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-
 import { getSubdomain } from '@/lib/domain';
 import { domainConfig } from '@/config/domain';
 
 const PUBLIC_FILE = /\.(.*)$/;
+
+// Helper sederhana untuk cek status login (sesuaikan dengan mekanisme auth Anda)
+const isAuthenticated = (req: NextRequest) => {
+  const token = req.cookies.get('token'); // Sesuaikan nama cookie Anda
+  return !!token;
+};
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -13,7 +18,6 @@ export function middleware(req: NextRequest) {
   | IGNORE INTERNALS / STATIC FILES
   |--------------------------------------------------------------------------
   */
-
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -24,24 +28,16 @@ export function middleware(req: NextRequest) {
   }
 
   const host = req.headers.get('host') ?? '';
-
   const subdomain = getSubdomain(host);
-
   const url = req.nextUrl.clone();
 
   /*
   |--------------------------------------------------------------------------
   | CLEAN SUBDOMAIN URLS
   |--------------------------------------------------------------------------
-  |
-  | admin.localhost/admin/dashboard
-  | -> admin.localhost/dashboard
-  |
   */
-
   if (subdomain === domainConfig.subdomains.admin && pathname.startsWith('/admin')) {
     url.pathname = pathname.replace('/admin', '') || '/';
-
     return NextResponse.redirect(url);
   }
 
@@ -50,16 +46,11 @@ export function middleware(req: NextRequest) {
   | OPTIONAL DIRECT PATH ACCESS
   |--------------------------------------------------------------------------
   */
-
   if (pathname.startsWith('/admin')) {
-    // Allow localhost/admin/*
     if (domainConfig.enableAdminPathRouting) {
       return NextResponse.next();
     }
-
-    // Block direct access when disabled
     url.pathname = '/404';
-
     return NextResponse.rewrite(url);
   }
 
@@ -68,8 +59,16 @@ export function middleware(req: NextRequest) {
   | INTERNAL USER ROUTES
   |--------------------------------------------------------------------------
   */
-
-  if (pathname.startsWith('/user')) {
+  /*
+  |--------------------------------------------------------------------------
+  | INTERNAL USER ROUTES
+  |--------------------------------------------------------------------------
+  */
+  // Tambahkan /clearance ke sini agar tidak direwrite ke /user/clearance
+  if (
+    pathname.startsWith('/user') || 
+    pathname.startsWith('/clearence')
+  ) {
     return NextResponse.next();
   }
 
@@ -78,32 +77,39 @@ export function middleware(req: NextRequest) {
   | ROOT REDIRECTS
   |--------------------------------------------------------------------------
   */
-
-  // admin.localhost -> /dashboard
   if (subdomain === domainConfig.subdomains.admin && pathname === '/') {
     url.pathname = '/dashboard';
-
     return NextResponse.redirect(url);
   }
 
-  // localhost -> /login-screen
   if (!subdomain && pathname === '/') {
     url.pathname = '/login-screen';
-
     return NextResponse.redirect(url);
   }
 
   /*
   |--------------------------------------------------------------------------
-  | SUBDOMAIN ROUTING
+  | SUBDOMAIN ROUTING (DITAMBAHKAN PROTEKSI DI SINI)
   |--------------------------------------------------------------------------
   */
-
-  // admin.localhost/dashboard
-  // -> /admin/dashboard
   if (subdomain === domainConfig.subdomains.admin) {
-    url.pathname = `/admin${pathname}`;
+    const isLoginPath = pathname === '/login-screen';
+    const isAuth = isAuthenticated(req);
 
+    // 1. Jika belum login dan tidak akses halaman login, paksa ke login
+    if (!isAuth && !isLoginPath) {
+      url.pathname = '/login-screen';
+      return NextResponse.redirect(url);
+    }
+
+    // 2. Jika sudah login dan mencoba buka halaman login, lempar ke dashboard
+    if (isAuth && isLoginPath) {
+      url.pathname = '/dashboard';
+      return NextResponse.redirect(url);
+    }
+
+    // 3. Rewrite normal ke /admin
+    url.pathname = `/admin${pathname}`;
     return NextResponse.rewrite(url);
   }
 
@@ -112,11 +118,7 @@ export function middleware(req: NextRequest) {
   | DEFAULT USER ROUTING
   |--------------------------------------------------------------------------
   */
-
-  // localhost/dashboard
-  // -> /user/dashboard
   url.pathname = `/user${pathname}`;
-
   return NextResponse.rewrite(url);
 }
 

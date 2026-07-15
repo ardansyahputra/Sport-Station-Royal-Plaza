@@ -5,8 +5,8 @@ import ProductManagementContent from './components/ProductManagementContent';
 export default function ProductManagementPage() {
   return (
     <AppLayout
-      pageTitle="Manajemen Produk Reguler"
-      pageSubtitle="Katalog Footwear Up to 30% — Sport Station Royal Plaza"
+      pageTitle="Manajemen Produk Lastcall"
+      pageSubtitle="Katalog Footwear Up to 70% — Sport Station Royal Plaza"
     >
       <ProductManagementContent />
     </AppLayout>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import {
   ShieldCheck,
   SlidersHorizontal,
@@ -12,7 +11,7 @@ import {
   Clock,
   Phone
 } from 'lucide-react';
-import { getStoredProducts } from '@/lib/storage';
+import { getStoredClearance } from '@/lib/stokstorage';
 import { formatIDR, type Product } from '@/lib/mockData';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, FreeMode } from 'swiper/modules';
@@ -57,7 +56,7 @@ export default function DashboardLandingPage() {
 
   // Data 10 Grup CNB
   const cnbGroups = [
-    { num: 1,  url: 'https://chat.whatsapp.com/Bervk63uUZk7MqM6GBhosN' },
+    // { num: 1,  url: 'https://chat.whatsapp.com/Bervk63uUZk7MqM6GBhosN' },
     { num: 2,  url: 'https://chat.whatsapp.com/FDzVkoJHn6PBQq6BD0YW1K' },
     { num: 3,  url: 'https://chat.whatsapp.com/LYfVSs2itlfK7snXgEGDE7' },
     { num: 4,  url: 'https://chat.whatsapp.com/I0BPjgeuCNy34KzNA1xxOf' },
@@ -73,7 +72,7 @@ export default function DashboardLandingPage() {
     const loadAllData = async () => {
       try {
         setLoading(true);
-        const storedProducts = await getStoredProducts();
+        const storedProducts = await getStoredClearance();
         setProducts(storedProducts);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -200,6 +199,10 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
       <style>{`
         @keyframes welcomeFadeIn {
           from { opacity: 0; } to { opacity: 1; }
+        }
+          @keyframes marqueeText {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
         }
         @keyframes welcomeFadeOut {
           from { opacity: 1; } to { opacity: 0; }
@@ -400,341 +403,47 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
           </div>
         </div>
       )}
-
-      {/* --- HERO BANNER SECTION --- */}
-      <section className="relative z-10 w-full h-[60vh] md:h-[80vh] bg-slate-950 flex items-center justify-center overflow-hidden">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-40"
-        >
-          <source src="/ss3o.mp4" type="video/mp4" />
-          Browser Anda tidak mendukung tag video.
-        </video>
-
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent z-0"></div>
-
-        <div className="absolute inset-0 flex items-center z-10 max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 w-full py-10">
-          <div className="max-w-xl md:max-w-3xl space-y-4 md:space-y-6" style={{ animation: 'fadeIn 1s ease-out' }}>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-semibold uppercase tracking-widest rounded-full w-max">
-              <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
-              WEB KATALOG SPORT STATION SURABAYA
-            </div>
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tight text-white leading-none drop-shadow-lg">
-              SPORT STATION <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">ROYAL PLAZA SURABAYA</span>
-            </h1>
-            <p className="text-slate-200 text-sm md:text-base font-normal max-w-xl leading-relaxed drop-shadow">
-              Temukan koleksi perlengkapan & sepatu olahraga original dari brand kelas dunia dengan penawaran terbaik langsung dari genggaman Anda.
-            </p>
-            <div className="pt-2 flex flex-wrap gap-3">
-              <a
-                href="#katalog"
-                className="group flex items-center gap-2 px-6 py-3 bg-orange-500 text-white font-bold text-xs uppercase tracking-widest hover:bg-orange-600 transition-all duration-300 transform hover:-translate-y-1 shadow-lg shadow-orange-500/20 rounded-xl"
-              >
-                <ShoppingBag size={14} />
-                Jelajahi Produk
-              </a>
-
-              {/* TikTok */}
-              <a
-                href="https://www.tiktok.com/@sportsstationroyal"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs uppercase tracking-widest transition-all duration-300 transform hover:-translate-y-1 rounded-xl backdrop-blur-sm"
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
-                </svg>
-                TikTok
-              </a>
-
-              {/* Instagram */}
-              <a
-                href="https://www.instagram.com/sportsstationroyal"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs uppercase tracking-widest transition-all duration-300 transform hover:-translate-y-1 rounded-xl backdrop-blur-sm"
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                </svg>
-                Instagram
-              </a>
-            </div>
-          </div>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#fff7f0] to-transparent z-10"></div>
-      </section>
-
-      {/* --- WEEKLY PROMO SECTION --- */}
-      <section className="relative z-20 max-w-md mx-auto px-4 mt-12">
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden flex flex-col">
-
-          {/* Header */}
-          <div className="px-5 pt-5 pb-4 flex items-center justify-between flex-shrink-0">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-100 text-orange-600 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2">
-                <span>🔥 Weekly Update</span>
-              </div>
-              <h3 className="text-lg font-black text-slate-900 uppercase leading-tight">Promo Terkini<br/>Sport Station</h3>
-              <p className="text-[11px] text-slate-500 mt-1">Video eksklusif koleksi terbaru kami</p>
-            </div>
-            <a
-              href="https://www.tiktok.com/@sportsstationroyal"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-orange-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all duration-300 flex-shrink-0"
-            >
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
-              </svg>
-              TikTok
-            </a>
-          </div>
-
-          {/* Video — full width, no gap */}
-          <div className="relative w-full aspect-[9/16] bg-slate-900">
-            <iframe
-              src={`https://www.youtube.com/embed/${PROMO_VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${PROMO_VIDEO_ID}&controls=0&disablekb=1&fs=0&iv_load_policy=3&modestbranding=1&rel=0&playsinline=1`}
-              className="absolute inset-0 w-full h-full"
-              allow="autoplay; encrypted-media"
-            />
-            {/* Overlay transparan: menangkap semua klik/tap supaya video tidak bisa di-pause, cuma bisa nonton jalan terus kayak video background */}
-            <div className="absolute inset-0 z-[5]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-red-600 text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-lg">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
-              PROMO VIDEO
-            </div>
-            <div className="absolute bottom-5 left-5 z-10 flex items-center gap-2 pointer-events-none">
-              <div className="w-8 h-8 rounded-full bg-orange-500/90 backdrop-blur-md flex items-center justify-center border-2 border-white/30 shadow">
-                <span className="text-[9px] text-white font-black">SS</span>
-              </div>
-              <div>
-                <p className="text-white text-xs font-black drop-shadow">@sportsstationroyal</p>
-                <p className="text-white/70 text-[9px] font-medium drop-shadow">Sport Station Royal Plaza</p>
-              </div>
-            </div>
-            <div className="absolute bottom-5 right-5 z-10">
-              <span className="bg-orange-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-                🔥 Weekly Update
-              </span>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* --- LAYANAN PELANGGAN SECTION --- */}
-      <section className="relative z-20 mt-8 max-w-2xl mx-auto px-4">
-        <div className="bg-white rounded-2xl shadow-xl shadow-slate-100/70 border border-slate-100 p-8 flex flex-col items-center text-center">
-          <div className="mb-4 p-3 bg-orange-50 text-orange-500 rounded-2xl shadow-sm">
-            <ShieldCheck size={28} strokeWidth={2} />
-          </div>
-          <h4 className="text-sm font-bold tracking-wider uppercase mb-4 text-slate-800">
-            Layanan Pelanggan
-          </h4>
-          <div className="space-y-4">
-            <span className="inline-block px-4 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-full tracking-widest shadow-sm">
-              10.00 - 22.00 WIB
-            </span>
-            <p className="text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
-              Admin kami siap membantu konsultasi ukuran, ketersediaan stok, dan info produk secara <span className="font-bold text-slate-700">real-time</span> via WhatsApp.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* === CLEARANCE SALE SECTION === */}
-      <section className="relative z-20 mt-8 max-w-6xl mx-auto px-4">
-        <div
-          className="relative overflow-hidden rounded-3xl border border-red-500/30 shadow-xl shadow-red-900/20"
-          style={{ background: 'linear-gradient(135deg, #1a1f2e 0%, #0f172a 50%, #1a1f2e 100%)' }}
-        >
-          {/* Decorative glowing orbs */}
-          <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-red-500/20 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-64 h-64 rounded-full bg-orange-500/15 blur-3xl pointer-events-none" />
-
-          {/* Grid pattern */}
-          <div
-            className="absolute inset-0 opacity-[0.04] pointer-events-none"
-            style={{
-              backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-            }}
-          />
-
-          <div className="relative z-10 p-6 sm:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
-
-            {/* Left: Icon + badge */}
-            <div className="flex-shrink-0 relative" style={{ animation: 'cnbFloat 3s ease-in-out infinite' }}>
-              <span className="absolute inset-0 rounded-full bg-red-500/40"
-                style={{ animation: 'cnbPulseRing 2s ease-out infinite' }} />
-              <span className="absolute inset-0 rounded-full bg-orange-500/30"
-                style={{ animation: 'cnbPulseRing 2s ease-out 0.6s infinite' }} />
-              <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-2xl shadow-red-500/40">
-                <span className="text-4xl">🔥</span>
-              </div>
-            </div>
-
-            {/* Center: Text content */}
-            <div className="flex-1 text-center md:text-left space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/15 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping inline-block" />
-                Stok Terbatas
-              </div>
-              <h3 className="text-white text-xl sm:text-3xl font-black uppercase tracking-tight leading-tight">
-                Flash{' '}
-                <span
-                  className="text-transparent"
-                  style={{
-                    backgroundImage: 'linear-gradient(90deg, #ef4444, #f97316, #ef4444)',
-                    backgroundSize: '200% auto',
-                    WebkitBackgroundClip: 'text',
-                    backgroundClip: 'text',
-                    animation: 'cnbShimmer 2.5s linear infinite',
-                  }}
-                >
-                  Clearance Sale
-                </span>
-              </h3>
-              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-md">
-                Buruan cek koleksi produk <span className="text-white font-bold">diskon clearance sampai 70%</span> sebelum
-                stoknya habis. Original, terbatas, dan cuma untuk yang gercep! 🔥
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                {['💥 Diskon s.d 70%', '📦 Stok Terbatas', '⏰ Selagi Ada'].map((tag) => (
-                  <span key={tag} className="px-2.5 py-1 bg-white/5 border border-white/10 text-white/60 text-[10px] font-medium rounded-full">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: CTA Button — navigasi ke /clearance */}
-            <div className="flex-shrink-0 text-center">
-              <Link
-                href="/clearence"
-                className="group relative inline-flex flex-col items-center gap-1"
-              >
-                <span className="absolute -inset-1 rounded-2xl bg-red-500/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <span className="relative inline-flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-2xl shadow-red-500/40 transition-all duration-300 transform group-hover:-translate-y-1 group-hover:shadow-red-500/60">
-                  <span className="text-lg">🔥</span>
-                  Lihat Clearance
-                  <span style={{ animation: 'cnbArrow 1s ease-in-out infinite' }}>→</span>
-                </span>
-                <span className="text-slate-500 text-[10px] font-medium mt-1">Diskon Hingga 70%</span>
-              </Link>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* === CNB GROUP SECTION === */}
-      <section className="relative z-20 mt-8 max-w-6xl mx-auto px-4">
-        <div
-          className="relative overflow-hidden rounded-3xl border border-orange-200 shadow-xl shadow-orange-100/60"
-          style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}
-        >
-          {/* Decorative glowing orbs */}
-          <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full bg-orange-500/20 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-10 -right-10 w-64 h-64 rounded-full bg-amber-400/10 blur-3xl pointer-events-none" />
-
-          {/* Grid pattern */}
-          <div
-            className="absolute inset-0 opacity-[0.04] pointer-events-none"
-            style={{
-              backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-            }}
-          />
-
-          <div className="relative z-10 p-6 sm:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-12">
-
-            {/* Left: Icon + badge */}
-            <div className="flex-shrink-0 relative" style={{ animation: 'cnbFloat 3s ease-in-out infinite' }}>
-              <span className="absolute inset-0 rounded-full bg-orange-500/40"
-                style={{ animation: 'cnbPulseRing 2s ease-out infinite' }} />
-              <span className="absolute inset-0 rounded-full bg-orange-500/30"
-                style={{ animation: 'cnbPulseRing 2s ease-out 0.6s infinite' }} />
-              <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center shadow-2xl shadow-orange-500/40">
-                <svg viewBox="0 0 24 24" className="w-10 h-10 fill-white" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M17 12c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm1 7.5h-2v-2h2v2zm0-4h-2V13h2v2.5zM11.93 12.02C11.04 10.2 9.16 9 7 9c-3.31 0-6 2.69-6 6s2.69 6 6 6c1.79 0 3.39-.75 4.54-1.95C10.59 17.85 10 16.49 10 15c0-1.09.28-2.12.76-3.02l1.17.02zM7 19c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zM21 5V3H3v2h8v2H3v2h8.1c.9-1.21 2.21-2.09 3.73-2.38C15.56 6.24 16.26 6 17 6c1.38 0 2.63.56 3.54 1.46L21 7V5z"/>
-                </svg>
-              </div>
-            </div>
-
-            {/* Center: Text content */}
-            <div className="flex-1 text-center md:text-left space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-500/15 border border-orange-500/30 text-orange-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping inline-block" />
-                Komunitas Resmi
-              </div>
-              <h3 className="text-white text-xl sm:text-3xl font-black uppercase tracking-tight leading-tight">
-                Gabung Grup{' '}
-                <span
-                  className="text-transparent"
-                  style={{
-                    backgroundImage: 'linear-gradient(90deg, #f97316, #fbbf24, #f97316)',
-                    backgroundSize: '200% auto',
-                    WebkitBackgroundClip: 'text',
-                    backgroundClip: 'text',
-                    animation: 'cnbShimmer 2.5s linear infinite',
-                  }}
-                >
-                  CNB
-                </span>
-              </h3>
-              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-md">
-                Mau dapet info promo eksklusif, flash sale, dan update produk terbaru duluan?
-                Yuk, masuk ke grup komunitas <span className="text-white font-bold">CNB</span> — gratis dan langsung terhubung ke tim kami! 🔥
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                {['🔥 Flash Sale Duluan', '📦 Info Stok Baru', '🎁 Promo Eksklusif', '💬 Tanya Admin'].map((tag) => (
-                  <span key={tag} className="px-2.5 py-1 bg-white/5 border border-white/10 text-white/60 text-[10px] font-medium rounded-full">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: CTA Button — buka modal */}
-            <div className="flex-shrink-0 text-center">
-              <button
-                onClick={() => setIsCNBModalOpen(true)}
-                className="group relative inline-flex flex-col items-center gap-1"
-              >
-                <span className="absolute -inset-1 rounded-2xl bg-orange-500/30 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <span className="relative inline-flex items-center gap-2.5 px-8 py-4 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-600 hover:to-amber-500 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-2xl shadow-orange-500/40 transition-all duration-300 transform group-hover:-translate-y-1 group-hover:shadow-orange-500/60">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  Klik Di Sini
-                  <span style={{ animation: 'cnbArrow 1s ease-in-out infinite' }}>→</span>
-                </span>
-                <span className="text-slate-500 text-[10px] font-medium mt-1">Pilih Grup WhatsApp CNB</span>
-              </button>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
+      
       {/* --- MAIN CONTENT AREA --- */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 space-y-12">
 
-        {/* --- CATALOGUE SECTION --- */}
-        <section id="katalog" className="space-y-8 scroll-mt-10">
-          <div className="text-center max-w-sm mx-auto space-y-2">
-            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 uppercase">Our Collection</h2>
-            <div className="h-1 w-12 bg-orange-500 mx-auto rounded-full"></div>
-            <p className="text-xs text-slate-400 font-medium tracking-wide">Koleksi Produk Terlaris Hanya Untuk Anda</p>
-          </div>
+            {/* --- CLEARANCE BANNER SECTION --- */}
+<div className="group relative bg-gradient-to-br from-[#1a1f2e] to-[#0f172a] border border-slate-700 p-6 rounded-3xl shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 my-8 overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-orange-500/50 hover:shadow-orange-500/10">
+  
+  {/* Efek Glow di latar belakang */}
+  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 blur-3xl rounded-full"></div>
 
+  {/* Ikon dengan Animasi Pulse */}
+  <div className="relative shrink-0 transition-transform duration-500 group-hover:rotate-12">
+    <div className="absolute inset-0 bg-orange-500 rounded-full animate-ping opacity-30 scale-150"></div>
+    <div className="relative bg-gradient-to-tr from-orange-400 to-orange-600 p-4 rounded-2xl shadow-lg shadow-orange-500/20">
+      <span className="text-3xl animate-bounce inline-block">🔥</span>
+    </div>
+  </div>
+
+  {/* Teks Deskripsi */}
+  <div className="flex-1 text-center md:text-left z-10">
+    <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+      <span className="flex h-2 w-2 relative">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+      </span>
+      <span className="text-orange-500 text-[10px] font-black uppercase tracking-[0.2em]">
+        Flash Clearance Sale
+      </span>
+    </div>
+    
+    <h3 className="text-white font-extrabold text-2xl md:text-3xl uppercase tracking-tight leading-tight transition-all duration-300 group-hover:text-orange-100">
+      DISKON <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">CLEARANCE 70%</span>
+    </h3>
+    <p className="text-slate-400 text-sm mt-1 font-medium group-hover:text-slate-300 transition-colors">
+      Stok terbatas! Amankan produk favoritmu sebelum kehabisan.
+    </p>
+  </div>
+</div>
+
+      {/* --- CATALOGUE SECTION --- */}
+      <section id="katalog" className="space-y-8 scroll-mt-10">
           {/* Bar Filter Dinamis */}
           <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 shadow-sm">
             {/* <div className="flex items-center gap-2.5 text-slate-900 font-bold text-sm flex-shrink-0">
@@ -982,65 +691,6 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
             </div>
           )}
         </section>
-
-        {/* --- SECTION ABOUT US & GOOGLE MAPS --- */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-10 shadow-sm grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
-          <div className="lg:col-span-5 flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-1.5 text-orange-500 font-extrabold text-[11px] uppercase tracking-widest">
-                <span className="h-1 w-5 bg-orange-500 rounded-full"></span>
-                About Store
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
-                About <br />
-                <span className="text-orange-500">Sport Station Royal Plaza</span>
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                Sport Station Royal Plaza Surabaya adalah destinasi utama Anda untuk mendapatkan perlengkapan olahraga dan lifestyle sneaker 100% original dari brand terkemuka dunia seperti Nike, Adidas, Puma, Skechers, Reebok, Converse, dan Diadora.
-              </p>
-              <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                Kami berkomitmen memberikan pengalaman belanja katalog digital yang instan, transparan, dan terpercaya dengan kemudahan pemesanan langsung terhubung ke admin gerai resmi kami melalui WhatsApp.
-              </p>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 space-y-3">
-              <div className="flex items-start gap-3 text-xs font-semibold text-slate-700">
-                <MapPin size={16} className="text-orange-500 flex-shrink-0 mt-0.5" />
-                <span>Lantai Ground, Royal Plaza, Jl. Ahmad Yani No.16-18, Surabaya, Jawa Timur</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs font-semibold text-slate-700">
-                <Clock size={16} className="text-orange-500 flex-shrink-0" />
-                <span>Buka Setiap Hari: 10:00 - 22:00 WIB</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs font-semibold text-slate-700">
-                <Phone size={16} className="text-orange-500 flex-shrink-0" />
-                <span>+62 822-2591-5363 (CS Online)</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-7 relative min-h-[300px] bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-inner group">
-            {/* ✅ FIXED: Koordinat tepat Royal Plaza Surabaya — Jl. Ahmad Yani */}
-            <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3957.6107983598!2d112.73117531477397!3d-7.294399794717483!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2dd7fbf8381ac47f%3A0x21df62b4ff995ba2!2sRoyal%20Plaza%20Surabaya!5e0!3m2!1sen!2sid!4v1717900000001!5m2!1sen!2sid"
-              className="w-full h-full border-0 absolute inset-0"
-              allowFullScreen={true}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              title="Sports Station Royal Plaza Map"
-            ></iframe>
-            <a
-              href="https://maps.app.goo.gl/RoyalPlazaSurabaya"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute bottom-3 right-3 bg-white hover:bg-slate-900 hover:text-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-lg text-[11px] font-bold text-slate-800 transition-colors flex items-center gap-1.5 z-10"
-            >
-              <MapPin size={12} className="text-orange-500" />
-              Buka di Google Maps
-            </a>
-          </div>
-        </section>
-
       </main>
 
       {/* --- FOOTER AREA --- */}
