@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
+import { LogoutButton } from '@/logoutbutton';
 import {
   LayoutDashboard,
   Package,
@@ -220,19 +221,9 @@ export default function Sidebar({ lowStockCount = 0 }: SidebarProps) {
         </button>
 
         {/* Logout */}
-        <Link
-          href="/login-screen"
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 hover:bg-sidebar-hover group"
-          style={{ color: 'var(--sidebar-text)' }}
-        >
-          <LogOut size={18} className="flex-shrink-0" />
-          {!collapsed && <span className="text-sm">Keluar</span>}
-          {collapsed && (
-            <span className="absolute left-full ml-2 px-2 py-1 rounded bg-gray-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-dropdown">
-              Keluar
-            </span>
-          )}
-        </Link>
+          <LogoutButton collapsed = {collapsed}>
+
+          </LogoutButton>
       </div>
     </aside>
   );
