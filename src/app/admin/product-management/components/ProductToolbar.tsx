@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Search,
   Plus,
@@ -9,7 +9,21 @@ import {
   RotateCcw,
   Trash2,
   AlertTriangle,
+  Users,
+  Power,
+  X,
+  Phone,
+  ExternalLink,
 } from 'lucide-react';
+import {
+  type AdminContact,
+  getAdmins,
+  fetchAdmins,
+  addAdmin,
+  removeAdmin,
+  toggleAdminActive,
+  buildWhatsappLink,
+} from '@/lib/adminConfig';
 
 type ProductToolbarProps = {
   search: string;
@@ -73,6 +87,54 @@ export default function ProductToolbar({
   totalAll,
   lowStockCount,
 }: ProductToolbarProps) {
+  // === State Popup Kelola Admin WhatsApp ===
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [admins, setAdmins] = useState<AdminContact[]>([]);
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminPhone, setNewAdminPhone] = useState('');
+  const [adminFormError, setAdminFormError] = useState('');
+
+  const [isAdminLoading, setIsAdminLoading] = useState(false);
+
+  // Muat daftar admin TERBARU dari server setiap kali popup dibuka,
+  // supaya selalu sinkron dengan device/HP admin lain (bukan cache basi).
+  useEffect(() => {
+    if (isAdminModalOpen) {
+      setAdmins(getAdmins()); // tampilkan cache dulu biar gak kosong/kedip
+      setAdminFormError('');
+      setIsAdminLoading(true);
+      fetchAdmins()
+        .then(setAdmins)
+        .finally(() => setIsAdminLoading(false));
+    }
+  }, [isAdminModalOpen]);
+
+  const handleToggleAdmin = async (id: string) => {
+    setAdmins(await toggleAdminActive(id));
+  };
+
+  const handleRemoveAdmin = async (id: string) => {
+    setAdmins(await removeAdmin(id));
+  };
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newAdminName.trim();
+    const phone = newAdminPhone.replace(/[^\d]/g, '');
+    if (!name || !phone) {
+      setAdminFormError('Nama dan No. WA admin wajib diisi.');
+      return;
+    }
+    if (phone.length < 9) {
+      setAdminFormError('No. WA tidak valid.');
+      return;
+    }
+    setAdmins(await addAdmin(name, phone));
+    setNewAdminName('');
+    setNewAdminPhone('');
+    setAdminFormError('');
+  };
+
   return (
     <div className="bg-white p-4 rounded-xl border space-y-3 shadow-sm">
       {/* ROW 1 — Search + Action Buttons */}
@@ -117,6 +179,14 @@ export default function ProductToolbar({
           >
             <Download size={14} />
             Export (.xlsx)
+          </button>
+
+          <button
+            onClick={() => setIsAdminModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-600 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-2xs"
+          >
+            <Users size={14} />
+            Admin
           </button>
 
           <button
@@ -215,6 +285,186 @@ export default function ProductToolbar({
           </span>
         </div>
       </div>
+
+      {/* === POPUP KELOLA ADMIN WHATSAPP === */}
+      {isAdminModalOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+          style={{ animation: 'adminOverlayIn 0.2s ease-out' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setIsAdminModalOpen(false); }}
+        >
+          <div
+            className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[88vh]"
+            style={{ animation: 'adminScaleUp 0.25s cubic-bezier(0.16,1,0.3,1)' }}
+          >
+            {/* Header */}
+            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Users size={18} className="text-emerald-400" />
+                <div>
+                  <h3 className="font-bold text-sm uppercase tracking-wider">Kelola Admin WhatsApp</h3>
+                  <p className="text-[10px] text-slate-400 font-normal normal-case">
+                    Aktifkan (ON) admin yang sedang bertugas hari ini
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAdminModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 p-4 space-y-4 bg-slate-50">
+              {/* Daftar Admin */}
+              <div className="space-y-2">
+                {isAdminLoading && (
+                  <p className="text-center text-[10px] text-slate-400 py-1">
+                    Menyinkronkan data admin dari server...
+                  </p>
+                )}
+                {admins.length === 0 && (
+                  <p className="text-center text-xs text-slate-400 py-6">
+                    Belum ada admin. Tambahkan No. WA admin di bawah.
+                  </p>
+                )}
+                {admins.map((admin) => {
+                  const testWaLink = buildWhatsappLink(
+                    admin.phone,
+                    `Halo ${admin.name}! 👋 Ini pesan test dari sistem Sport Station Royal Plaza untuk memastikan nomor WA admin ini sudah aktif dan siap menerima pesanan. ✅`
+                  );
+                  return (
+                    <div
+                      key={admin.id}
+                      className={`p-3 rounded-xl border transition-colors ${
+                        admin.active
+                          ? 'bg-emerald-50 border-emerald-200'
+                          : 'bg-white border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            admin.active ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
+                          }`}
+                        >
+                          <Phone size={15} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-800 truncate">{admin.name}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">+{admin.phone}</p>
+                        </div>
+
+                        {/* Status badge */}
+                        <span
+                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex-shrink-0 ${
+                            admin.active
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-slate-200 text-slate-500'
+                          }`}
+                        >
+                          {admin.active ? 'ON • Duty' : 'OFF'}
+                        </span>
+
+                        {/* Toggle ON/OFF */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAdmin(admin.id)}
+                          title={admin.active ? 'Matikan (OFF)' : 'Aktifkan (ON)'}
+                          className={`flex items-center justify-center w-8 h-8 rounded-lg border transition-colors flex-shrink-0 ${
+                            admin.active
+                              ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600'
+                              : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-100'
+                          }`}
+                        >
+                          <Power size={14} />
+                        </button>
+
+                        {/* Hapus */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAdmin(admin.id)}
+                          title="Hapus admin"
+                          className="flex items-center justify-center w-8 h-8 rounded-lg border border-red-100 bg-red-50 text-red-500 hover:bg-red-100 transition-colors flex-shrink-0"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+
+                      {/* Preview link wa.me (format api.whatsapp.com/send) + tombol test */}
+                      <a
+                        href={testWaLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 flex items-center gap-1.5 text-[9px] font-mono text-slate-400 hover:text-emerald-600 bg-white border border-slate-100 rounded-lg px-2 py-1.5 truncate transition-colors"
+                        title="Klik untuk test buka WhatsApp admin ini"
+                      >
+                        <ExternalLink size={10} className="flex-shrink-0" />
+                        <span className="truncate">
+                          api.whatsapp.com/send/?phone={admin.phone}&amp;...
+                        </span>
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Form Tambah Admin */}
+              <form
+                onSubmit={handleAddAdmin}
+                className="p-3 bg-white border border-dashed border-slate-300 rounded-xl space-y-2"
+              >
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                  + Tambah Admin Baru
+                </p>
+                <p className="text-[9px] text-slate-400 -mt-1 leading-relaxed">
+                  Admin baru otomatis langsung <span className="font-bold text-emerald-600">ON</span> dan akan tampil sebagai pilihan di halaman utama. Matikan (OFF) kalau lagi libur.
+                </p>
+                <input
+                  type="text"
+                  placeholder="Nama admin, contoh: Admin Toni"
+                  value={newAdminName}
+                  onChange={(e) => setNewAdminName(e.target.value)}
+                  className="w-full text-xs rounded-lg border bg-slate-50 text-foreground px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+                <input
+                  type="tel"
+                  placeholder="No. WA, contoh: 081234567890"
+                  value={newAdminPhone}
+                  onChange={(e) => setNewAdminPhone(e.target.value)}
+                  className="w-full text-xs rounded-lg border bg-slate-50 text-foreground px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+                {adminFormError && (
+                  <p className="text-[10px] text-red-500 font-semibold">{adminFormError}</p>
+                )}
+                <button
+                  type="submit"
+                  className="w-full flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+                >
+                  <Plus size={14} />
+                  Tambah Admin
+                </button>
+              </form>
+
+              <p className="text-[10px] text-slate-400 italic text-center">
+                Bisa lebih dari 1 admin ON sekaligus (support puluhan admin). Semua admin yang ON akan muncul sebagai pilihan buat customer saat checkout di halaman utama.
+              </p>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes adminOverlayIn {
+              from { opacity: 0; } to { opacity: 1; }
+            }
+            @keyframes adminScaleUp {
+              from { opacity: 0; transform: scale(0.94) translateY(8px); }
+              to   { opacity: 1; transform: scale(1) translateY(0); }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 }
