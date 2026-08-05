@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ShieldCheck,
@@ -14,6 +14,12 @@ import {
 } from 'lucide-react';
 import { getStoredProducts } from '@/lib/storage';
 import { formatIDR, type Product } from '@/lib/mockData';
+import {
+  type AdminContact,
+  getOnDutyAdmins,
+  getActiveAdmin,
+  buildWhatsappLink,
+} from '@/lib/adminConfig';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, FreeMode } from 'swiper/modules';
 import 'swiper/css';
@@ -48,6 +54,37 @@ export default function DashboardLandingPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
+  // Metode pengiriman: pakai JNT, customer pilih bayar COD atau Transfer (TF)
+  const [shippingMethod, setShippingMethod] = useState<'COD' | 'TF'>('COD');
+
+  // State Popup Animasi "Menghubungkan ke WhatsApp Admin"
+  const [isSendingToWA, setIsSendingToWA] = useState(false);
+  const [sendingAdminName, setSendingAdminName] = useState('');
+
+  // State Popup "Pilih Admin" — muncul setelah form order disubmit,
+  // customer memilih sendiri mau kirim pesanan ke admin yang mana
+  // dari daftar admin yang sedang ON/bertugas.
+  const [isAdminPickerOpen, setIsAdminPickerOpen] = useState(false);
+  const [onDutyAdmins, setOnDutyAdmins] = useState<AdminContact[]>([]);
+  const [pendingOrderData, setPendingOrderData] = useState<{
+    product: Product;
+    size: string;
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    shipping: 'COD' | 'TF';
+  } | null>(null);
+
+  // Konversi ukuran EU -> CM (panjang telapak kaki), dipakai untuk menampilkan
+  // kolom "Size CM" di tabel stok & form order. Formula pendekatan standar sneaker.
+  const euToCm = (eu: string): string => {
+    const euNum = parseFloat(eu);
+    if (isNaN(euNum)) return '-';
+    const cm = ((euNum - 2) * (2 / 3));
+    const rounded = Math.round(cm * 2) / 2; // dibulatkan ke kelipatan 0.5
+    return rounded.toFixed(1).replace(/\.0$/, '');
+  };
 
   // Video promo mingguan (YouTube). Ganti nilai ini kalau video promo diupdate:
   // - Video biasa: https://www.youtube.com/watch?v=VIDEO_ID
@@ -87,25 +124,34 @@ export default function DashboardLandingPage() {
     loadAllData();
   }, []);
 
-  const availableBrands = ['ALL', ...Array.from(new Set(products.map(p => p.brand).filter(Boolean)))];
+  // Di-memoize supaya list produk & brand TIDAK dihitung ulang tiap kali ada
+  // keystroke di form order (nama, email, alamat, dll) atau modal dibuka/tutup.
+  // Sebelumnya ini dihitung ulang di SETIAP render, termasuk saat ketik di form
+  // order — itulah sumber utama kenapa buka/isi form order terasa berat/lag.
+  const availableBrands = useMemo(
+    () => ['ALL', ...Array.from(new Set(products.map(p => p.brand).filter(Boolean)))],
+    [products]
+  );
 
-  const filteredProducts = products.filter((product) => {
-    const matchBrand = selectedBrand === 'ALL' || product.brand === selectedBrand;
-    let matchDiscount = true;
-    if (selectedDiscount === 'DISCOUNT') matchDiscount = product.discountPercent > 0;
-    else if (selectedDiscount === 'NORMAL') matchDiscount = product.discountPercent === 0;
-    const rawGender = (product.category || '').toUpperCase();
-    const matchGender = selectedGender === 'ALL' || rawGender === selectedGender;
-    const rawType = ((product as any).productType || '').toUpperCase();
-    const matchCategory = selectedCategory === 'ALL' || rawType === selectedCategory;
-    const q = searchQuery.toLowerCase().trim();
-    const matchSearch = !q ||
-      (product.modelName || '').toLowerCase().includes(q) ||
-      (product.brand || '').toLowerCase().includes(q) ||
-      ((product as any).productCode || '').toLowerCase().includes(q) ||
-      (product.color || '').toLowerCase().includes(q);
-    return matchBrand && matchDiscount && matchGender && matchCategory && matchSearch;
-  });
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchBrand = selectedBrand === 'ALL' || product.brand === selectedBrand;
+      let matchDiscount = true;
+      if (selectedDiscount === 'DISCOUNT') matchDiscount = product.discountPercent > 0;
+      else if (selectedDiscount === 'NORMAL') matchDiscount = product.discountPercent === 0;
+      const rawGender = (product.category || '').toUpperCase();
+      const matchGender = selectedGender === 'ALL' || rawGender === selectedGender;
+      const rawType = ((product as any).productType || '').toUpperCase();
+      const matchCategory = selectedCategory === 'ALL' || rawType === selectedCategory;
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch = !q ||
+        (product.modelName || '').toLowerCase().includes(q) ||
+        (product.brand || '').toLowerCase().includes(q) ||
+        ((product as any).productCode || '').toLowerCase().includes(q) ||
+        (product.color || '').toLowerCase().includes(q);
+      return matchBrand && matchDiscount && matchGender && matchCategory && matchSearch;
+    });
+  }, [products, selectedBrand, selectedDiscount, selectedGender, selectedCategory, searchQuery]);
 
   const handleOpenOrderModal = (product: Product) => {
     setSelectedProductToOrder(product);
@@ -113,51 +159,149 @@ export default function DashboardLandingPage() {
     setSelectedSize('');
   };
 
-  const handleConfirmOrder = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProductToOrder) return;
+  // Daftar size + konversi CM untuk tabel stok di modal order.
+  // Di-memoize berdasarkan produk yang dipilih saja, jadi tidak dihitung ulang
+  // setiap kali customer mengetik di field nama/email/alamat/dll — ini bikin
+  // modal order jauh lebih ringan saat diketik.
+  const orderModalSizes = useMemo(() => {
+    if (!selectedProductToOrder?.sizes) return [];
+    return selectedProductToOrder.sizes
+      .filter((sizeEntry) => sizeEntry.stock > 0)
+      .sort((a, b) => parseFloat(a.eu) - parseFloat(b.eu))
+      .map((sizeEntry) => ({
+        ...sizeEntry,
+        cm: (sizeEntry as any).cm || euToCm(sizeEntry.eu),
+      }));
+  }, [selectedProductToOrder]);
 
-    const targetPhoneNumber = "6282225915363";
-    const productPrice = selectedProductToOrder.discountPercent > 0
-      ? formatIDR(selectedProductToOrder.discountedPrice)
-      : formatIDR(selectedProductToOrder.originalPrice);
+  const buildOrderMessage = (
+    order: {
+      product: Product;
+      size: string;
+      name: string;
+      email: string;
+      phone: string;
+      address: string;
+      shipping: 'COD' | 'TF';
+    },
+    adminName: string
+  ) => {
+    const productPrice = order.product.discountPercent > 0
+      ? formatIDR(order.product.discountedPrice)
+      : formatIDR(order.product.originalPrice);
 
-    const whatsappText = `⚡ *PESANAN BARU - SPORT STATION ROYAL* ⚡
+    const shippingLabel = order.shipping === 'COD'
+      ? 'JNT - Bayar di Tempat (COD)'
+      : 'JNT - Transfer Bank (TF)';
+
+    return `⚡ *PESANAN BARU - SPORT STATION ROYAL* ⚡
     
-Halo Admin Sport Station Royal Plaza! 👋
+Halo ${adminName}! 👋
 Saya tertarik dan ingin memesan produk keren ini. Berikut adalah detail pesanan saya:
 
 ============================
 👟 *DETAIL PRODUK PREMIUM*
 ============================
-• *Brand/Merk* : ${selectedProductToOrder.brand}
-• *Model/Tipe* : ${selectedProductToOrder.modelName}
-• *Kategori* : ${selectedProductToOrder.category}
-• *Warna* : ${selectedProductToOrder.color || '-'}
-• *Request Size (EU)* : 🔥 *${selectedSize}*
+• *Brand/Merk* : ${order.product.brand}
+• *Model/Tipe* : ${order.product.modelName}
+• *Kategori* : ${order.product.category}
+• *Warna* : ${order.product.color || '-'}
+• *Request Size (EU/CM)* : 🔥 *${order.size}*
 • *Total Harga* : *${productPrice}*
 
 ============================
 👤 *DATA LENGKAP PEMESAN*
 ============================
-• *Nama* : ${customerName}
-• *Email* : ${customerEmail}
-• *No. WhatsApp*: ${customerPhone}
-• *Alamat Pengiriman*: ${customerAddress}
+• *Nama* : ${order.name}
+• *Email* : ${order.email}
+• *No. WhatsApp*: ${order.phone}
+• *Alamat Pengiriman*: ${order.address}
+
+============================
+🚚 *PENGIRIMAN*
+============================
+• *Kurir* : JNT Express
+• *Metode Bayar* : ${shippingLabel}
 
 Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesanan ini ya. Terima kasih banyak! ✨`;
+  };
 
-    const encodedText = encodeURIComponent(whatsappText);
-    const whatsappUrl = `https://wa.me/${targetPhoneNumber}?text=${encodedText}`;
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  const handleConfirmOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProductToOrder) return;
 
+    const orderData = {
+      product: selectedProductToOrder,
+      size: selectedSize,
+      name: customerName,
+      email: customerEmail,
+      phone: customerPhone,
+      address: customerAddress,
+      shipping: shippingMethod,
+    };
+    setPendingOrderData(orderData);
+
+    // Ambil semua admin yang sedang ON/bertugas LANGSUNG DARI SERVER (database),
+    // bukan dari localStorage HP customer — supaya selalu dapat status ON/OFF
+    // paling baru yang diatur admin dari HP/device mereka sendiri.
+    const dutyAdmins = await getOnDutyAdmins();
+
+    if (dutyAdmins.length === 0) {
+      // Tidak ada admin ON sama sekali -> fallback langsung ke 1 nomor default
+      const fallback = await getActiveAdmin();
+      const adminName = fallback?.name || 'Admin Sport Station Royal Plaza';
+      const phone = fallback?.phone || '6282225915363';
+      const text = buildOrderMessage(orderData, adminName);
+      const link = buildWhatsappLink(phone, text);
+
+      setSendingAdminName(adminName);
+      setIsModalOpen(false);
+      setIsSendingToWA(true);
+      setTimeout(() => {
+        window.open(link, '_blank', 'noopener,noreferrer');
+        setIsSendingToWA(false);
+        resetOrderForm();
+      }, 1400);
+      return;
+    }
+
+    // Ada 1 atau lebih admin ON -> biarkan customer pilih sendiri
+    setOnDutyAdmins(dutyAdmins);
     setIsModalOpen(false);
+    setIsAdminPickerOpen(true);
+  };
+
+  const handleSelectAdmin = (admin: AdminContact) => {
+    if (!pendingOrderData) return;
+    const text = buildOrderMessage(pendingOrderData, admin.name);
+    const link = buildWhatsappLink(admin.phone, text);
+
+    setIsAdminPickerOpen(false);
+    setSendingAdminName(admin.name);
+    setIsSendingToWA(true);
+
+    setTimeout(() => {
+      window.open(link, '_blank', 'noopener,noreferrer');
+      setIsSendingToWA(false);
+      resetOrderForm();
+    }, 1400);
+  };
+
+  const resetOrderForm = () => {
     setCustomerName('');
     setCustomerEmail('');
     setCustomerPhone('');
     setCustomerAddress('');
     setSelectedSize('');
+    setShippingMethod('COD');
+    setPendingOrderData(null);
+    setSelectedProductToOrder(null);
   };
+
+  // Saat modal/popup manapun terbuka, animasi blob background dijeda (paused).
+  // Blob blur yang terus jalan di belakang layer blur modal itu berat di GPU,
+  // terutama di HP — ini salah satu penyebab utama "buka form order jadi lag".
+  const anyOverlayOpen = isModalOpen || isAdminPickerOpen || isSendingToWA || isCNBModalOpen;
 
   if (loading) {
     return (
@@ -177,15 +321,15 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div
           className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full opacity-[0.12]"
-          style={{ background: 'radial-gradient(circle, #f97316 0%, transparent 70%)', animation: 'bgFloat1 14s ease-in-out infinite' }}
+          style={{ background: 'radial-gradient(circle, #f97316 0%, transparent 70%)', animation: 'bgFloat1 14s ease-in-out infinite', animationPlayState: anyOverlayOpen ? 'paused' : 'running' }}
         />
         <div
           className="absolute top-1/3 -left-48 w-[600px] h-[600px] rounded-full opacity-[0.08]"
-          style={{ background: 'radial-gradient(circle, #fb923c 0%, transparent 70%)', animation: 'bgFloat2 18s ease-in-out infinite' }}
+          style={{ background: 'radial-gradient(circle, #fb923c 0%, transparent 70%)', animation: 'bgFloat2 18s ease-in-out infinite', animationPlayState: anyOverlayOpen ? 'paused' : 'running' }}
         />
         <div
           className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full opacity-[0.10]"
-          style={{ background: 'radial-gradient(circle, #fdba74 0%, transparent 70%)', animation: 'bgFloat3 12s ease-in-out infinite' }}
+          style={{ background: 'radial-gradient(circle, #fdba74 0%, transparent 70%)', animation: 'bgFloat3 12s ease-in-out infinite', animationPlayState: anyOverlayOpen ? 'paused' : 'running' }}
         />
         {/* Subtle diagonal stripe pattern */}
         <div
@@ -299,6 +443,43 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
         @keyframes scaleUp {
           from { opacity: 0; transform: scale(0.95) translateY(10px); }
           to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        @keyframes adminPickerOverlayIn {
+          from { opacity: 0; } to { opacity: 1; }
+        }
+        @keyframes adminPickerSheetUp {
+          0%   { opacity: 0; transform: translateY(40px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes adminPickerBadgePop {
+          0%   { opacity: 0; transform: scale(0.7); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes adminPickerItemIn {
+          0%   { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes waOverlayIn {
+          from { opacity: 0; } to { opacity: 1; }
+        }
+        @keyframes waIconPop {
+          0%   { transform: scale(0.4); opacity: 0; }
+          60%  { transform: scale(1.12); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes waRingExpand {
+          0%   { transform: scale(1);   opacity: 0.55; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+        @keyframes waTextFadeUp {
+          0%   { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes waDotBounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+          40%            { transform: translateY(-6px); opacity: 1; }
         }
       `}</style>
 
@@ -1056,7 +1237,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
       {/* === MODAL CNB GROUP === */}
       {isCNBModalOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-md"
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm"
           style={{ animation: 'cnbOverlayIn 0.3s ease-out forwards' }}
           onClick={(e) => { if (e.target === e.currentTarget) setIsCNBModalOpen(false); }}
         >
@@ -1251,14 +1432,12 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                   </label>
                   <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <div className="grid grid-cols-2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest">
-                      <div className="px-3 py-2 text-center"> Size EU atau CM</div>
+                      <div className="px-3 py-2 text-center">Size EU</div>
                       <div className="px-3 py-2 text-center border-l border-white/10">Stok Tersedia</div>
                     </div>
                     <div className="overflow-y-auto max-h-[130px] divide-y divide-slate-100">
-                      {selectedProductToOrder.sizes &&
-                        selectedProductToOrder.sizes
-                          .filter((sizeEntry) => sizeEntry.stock > 0)
-                          .sort((a, b) => parseFloat(a.eu) - parseFloat(b.eu))
+                      {orderModalSizes.length > 0 &&
+                        orderModalSizes
                           .map((sizeEntry) => (
                             <div key={sizeEntry.eu} className="grid grid-cols-2 text-xs bg-white hover:bg-slate-50 transition-colors">
                               <div className="px-3 py-2 text-center font-black text-slate-800 font-mono">
@@ -1269,7 +1448,7 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                               </div>
                             </div>
                           ))}
-                      {(!selectedProductToOrder.sizes || selectedProductToOrder.sizes.every(s => s.stock === 0)) && (
+                      {orderModalSizes.length === 0 && (
                         <div className="px-3 py-3 text-center text-[10px] font-bold text-pink-500">Semua ukuran habis</div>
                       )}
                     </div>
@@ -1280,17 +1459,17 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                 {/* Request Size */}
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                    Request Size (EU) <span className="text-pink-500">*</span>
+                    Request Size (EU/CM) <span className="text-pink-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: 42, 43, atau 41.5"
+                    placeholder="Contoh: 42 (EU) atau 26.5 cm"
                     value={selectedSize}
                     onChange={(e) => setSelectedSize(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:font-normal placeholder:text-slate-400"
                   />
-                  <p className="text-[10px] text-slate-400 italic">Tulis ukuran yang kamu inginkan sesuai tabel stok di atas</p>
+                  <p className="text-[10px] text-slate-400 italic">Tulis ukuran EU atau CM yang kamu inginkan sesuai tabel stok di atas</p>
                 </div>
 
                 <div className="space-y-1">
@@ -1334,6 +1513,39 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                   />
                 </div>
 
+                {/* Metode Pengiriman */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                    Pengiriman (JNT) <span className="text-pink-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShippingMethod('COD')}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition-all flex flex-col items-center gap-0.5 ${
+                        shippingMethod === 'COD'
+                          ? 'border-orange-500 bg-orange-50 text-orange-600'
+                          : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      <span>JNT - COD</span>
+                      <span className="text-[9px] font-medium normal-case text-slate-400">Bayar di tempat</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShippingMethod('TF')}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition-all flex flex-col items-center gap-0.5 ${
+                        shippingMethod === 'TF'
+                          ? 'border-orange-500 bg-orange-50 text-orange-600'
+                          : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      <span>JNT - TF</span>
+                      <span className="text-[9px] font-medium normal-case text-slate-400">Transfer bank</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-2">
                   <button
                     type="submit"
@@ -1344,6 +1556,129 @@ Mohon bantuan Admin untuk segera mengecek ketersediaan barang dan memproses pesa
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- POPUP PILIH ADMIN TUJUAN --- */}
+      {isAdminPickerOpen && (
+        <div
+          className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm"
+          style={{ animation: 'adminPickerOverlayIn 0.25s ease-out' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsAdminPickerOpen(false);
+              resetOrderForm();
+            }
+          }}
+        >
+          <div
+            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            style={{ animation: 'adminPickerSheetUp 0.35s cubic-bezier(0.16,1,0.3,1)' }}
+          >
+            {/* Header */}
+            <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-5 pt-5 pb-6 flex-shrink-0">
+              <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
+              <button
+                onClick={() => { setIsAdminPickerOpen(false); resetOrderForm(); }}
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 text-white transition-all z-10"
+              >
+                <X size={16} />
+              </button>
+              <div
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[9px] font-black uppercase tracking-widest rounded-full mb-2 relative z-10"
+                style={{ animation: 'adminPickerBadgePop 0.4s cubic-bezier(0.16,1,0.3,1) 0.1s both' }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                {onDutyAdmins.length} Admin Sedang ON
+              </div>
+              <h3 className="text-white text-lg font-black uppercase tracking-tight relative z-10">
+                Pilih Admin Tujuan
+              </h3>
+              <p className="text-slate-400 text-[11px] mt-1 relative z-10 leading-relaxed">
+                Pesananmu sudah siap! Pilih admin yang mau kamu hubungi via WhatsApp 👇
+              </p>
+            </div>
+
+            {/* Daftar admin ON — bisa banyak (20, 30, dst), otomatis scroll */}
+            <div className="overflow-y-auto flex-1 p-3 space-y-2 bg-slate-50">
+              {onDutyAdmins.map((admin, i) => (
+                <button
+                  key={admin.id}
+                  onClick={() => handleSelectAdmin(admin)}
+                  className="w-full group relative flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-2xl hover:border-emerald-300 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 text-left"
+                  style={{ animation: `adminPickerItemIn 0.35s ease-out ${0.05 + i * 0.04}s both` }}
+                >
+                  <div className="relative w-10 h-10 flex-shrink-0 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform duration-300">
+                    <Phone size={16} />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-slate-800 group-hover:text-emerald-600 transition-colors truncate">
+                      {admin.name}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono truncate">+{admin.phone} • Online</p>
+                  </div>
+                  <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-slate-50 group-hover:bg-emerald-500 flex items-center justify-center transition-all duration-300">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-slate-400 group-hover:fill-white transition-colors" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="px-4 py-3 bg-white border-t border-slate-100 flex-shrink-0 text-center">
+              <p className="text-[10px] text-slate-400 font-medium">
+                🔒 Pesanmu langsung terkirim ke WhatsApp pribadi admin yang dipilih
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- POPUP ANIMASI: MENGHUBUNGKAN KE WHATSAPP ADMIN --- */}
+      {isSendingToWA && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm"
+          style={{ animation: 'waOverlayIn 0.2s ease-out' }}
+        >
+          <div className="bg-white w-full max-w-xs rounded-3xl shadow-2xl px-6 py-8 flex flex-col items-center text-center gap-4">
+            {/* Icon WA dengan ring pulse */}
+            <div className="relative w-20 h-20 flex items-center justify-center">
+              <span
+                className="absolute inset-0 rounded-full bg-emerald-500"
+                style={{ animation: 'waRingExpand 1.4s ease-out infinite' }}
+              />
+              <span
+                className="absolute inset-0 rounded-full bg-emerald-500"
+                style={{ animation: 'waRingExpand 1.4s ease-out 0.4s infinite' }}
+              />
+              <div
+                className="relative w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg"
+                style={{ animation: 'waIconPop 0.4s cubic-bezier(0.16,1,0.3,1)' }}
+              >
+                <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                </svg>
+              </div>
+            </div>
+
+            <div style={{ animation: 'waTextFadeUp 0.35s ease-out 0.1s both' }}>
+              <p className="text-sm font-black text-slate-800">Menghubungkan ke WhatsApp</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Mengarahkan pesananmu ke{' '}
+                <span className="font-bold text-emerald-600">{sendingAdminName}</span>{' '}
+                yang sedang bertugas
+              </p>
+            </div>
+
+            {/* Dot loading */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" style={{ animation: 'waDotBounce 1s ease-in-out 0s infinite' }} />
+              <span className="w-2 h-2 rounded-full bg-emerald-500" style={{ animation: 'waDotBounce 1s ease-in-out 0.15s infinite' }} />
+              <span className="w-2 h-2 rounded-full bg-emerald-500" style={{ animation: 'waDotBounce 1s ease-in-out 0.3s infinite' }} />
             </div>
           </div>
         </div>
